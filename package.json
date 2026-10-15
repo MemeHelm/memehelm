@@ -1,0 +1,30 @@
+{
+  "name": "flap-copilot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.12" },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && vite build",
+    "start": "node --env-file-if-exists=.env server/index.mjs",
+    "contracts:build": "node scripts/compile-contracts.mjs",
+    "contracts:test": "node scripts/test-foundry.mjs",
+    "contracts:test:fork": "node scripts/test-foundry.mjs --fork",
+    "test": "node --test --test-isolation=none --test-concurrency=1 test/*.test.mjs",
+    "check": "pnpm contracts:build && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "viem": "2.57.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "ganache": "7.9.2",
+    "solc": "0.8.26",
+    "typescript": "~5.9.3",
+    "vite": "8.3.4"
+  }
+}

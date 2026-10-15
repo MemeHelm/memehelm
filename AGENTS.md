@@ -1,0 +1,12 @@
+# MemeHelm product direction
+
+- The website is for end users and all product copy is English, aimed at an international audience.
+- Keep development progress, implementation checklists, environment variables, API keys, deployment tutorials, model configuration, audit fundraising plans, and other internal team matters out of the website. Put developer information in repository documentation.
+- Use the MemeHelm name, angular M mark, and “Launch it. Steer it.” tagline. Retain the desktop interface inspired by kumioOS: app shortcuts, bordered windows, and a taskbar. Use MemeHelm's own near-black, cold-white, and neon yellow-green palette; do not adopt kumioOS's cream, mint, apricot, or pastel colors. The reference informs layout and interactions only. Keep labels clear and do not copy the reference project's brand or unrelated functionality.
+- Present usable product workflows and concrete feature demonstrations. Do not treat a developer control panel as the product homepage.
+- Show transaction details that help users decide: the actual network, fees, recipients, split, wallet confirmation, and material contract risks. Do not disguise testnet transactions as mainnet transactions.
+- Examples must be labeled as examples. Do not invent live users, transactions, revenue, market metrics, reviews, partnerships, or AI responses.
+- Preserve the wallet-signing boundary and existing testnet restrictions. Never request a seed phrase or private key.
+- Base launch choices on Flap's supported capabilities, not MEME OS mode names. Read docs/FLAP_CAPABILITIES.md before adding a mode. Distinguish token type, revenue routing, tax allocation, and AI operations; present a launch mode only after its complete path is integrated.
+- Keep motion restrained: a brief, skippable brand entrance; staggered desktop reveal; and short, interruptible window transitions. Respect reduced-motion preferences. Never invent loading percentages, connection checks, transaction progress, or developer-style boot logs.
+- Keep the wallpaper clean and atmospheric: static dark sculpted curves with restrained neon accents and a few small glowing particles wandering independently. Animate the points, not the lines or ribbons. Avoid pixel clouds, stepped terrain, dense dot patterns, and a large circular plate behind the brand mark.

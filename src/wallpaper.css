@@ -1,0 +1,59 @@
+.helm-wallpaper{
+  position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;user-select:none;
+  background:#080d10;
+  background-image:radial-gradient(ellipse at 78% 27%,#19282655,transparent 45%),linear-gradient(125deg,#080d10 25%,#101a1e 66%,#090f11);
+}
+.helm-wallpaper-atmosphere{
+  position:absolute;inset:-8%;
+  background:radial-gradient(ellipse at 90% 67%,#c5ef0014,transparent 32%),radial-gradient(ellipse at 45% 100%,#6a9fb515,transparent 43%);
+}
+.helm-wallpaper-sculpture{position:absolute;inset:0;width:100%;height:100%}
+.helm-wallpaper-particles{position:absolute;inset:0}
+.helm-wallpaper-particle{
+  position:absolute;left:var(--x);top:var(--y);width:3px;height:3px;border-radius:50%;
+  background:#e5ff87;box-shadow:0 0 6px 2px #d7ff003d,0 0 17px 5px #d7ff0014;
+  animation:helm-particle-wander var(--duration,26s) ease-in-out var(--delay,0s) infinite;
+}
+.helm-wallpaper-particle:nth-child(1){--x:21%;--y:29%;--dx:38px;--dy:-45px;--duration:24s;--delay:-6s}
+.helm-wallpaper-particle:nth-child(2){--x:39%;--y:73%;--dx:-52px;--dy:32px;--duration:31s;--delay:-19s;width:2px;height:2px}
+.helm-wallpaper-particle:nth-child(3){--x:63%;--y:18%;--dx:44px;--dy:36px;--duration:28s;--delay:-12s}
+.helm-wallpaper-particle:nth-child(4){--x:81%;--y:69%;--dx:-32px;--dy:-51px;--duration:25s;--delay:-17s}
+.helm-wallpaper-particle:nth-child(5){--x:92%;--y:39%;--dx:-42px;--dy:27px;--duration:33s;--delay:-9s;width:2px;height:2px}
+.helm-wallpaper-particle:nth-child(6){--x:17%;--y:86%;--dx:49px;--dy:-29px;--duration:29s;--delay:-22s;width:2px;height:2px}
+.helm-wallpaper-particle:nth-child(7){--x:56%;--y:47%;--dx:-34px;--dy:42px;--duration:27s;--delay:-14s;width:2px;height:2px}
+.helm-wallpaper-vignette{position:absolute;inset:0;background:linear-gradient(90deg,#070c0f88,transparent 32%),linear-gradient(0deg,#070b0e66,transparent 25%,transparent 88%,#070b0e44)}
+.helm-wallpaper-brand{position:absolute;top:28%;right:11%;display:flex;flex-direction:column;align-items:center;color:#e5edf1;text-align:center}
+.helm-wallpaper-brand>svg{width:100px;height:100px;margin-bottom:21px;filter:drop-shadow(0 4px 18px #0004)}
+.helm-wallpaper-brand>strong{font:600 clamp(30px,3.1vw,49px)/1 'Space Grotesk',Arial,sans-serif;letter-spacing:-2px}
+.helm-wallpaper-brand>strong>span{color:var(--mh-accent,#d7ff00)}
+.helm-wallpaper-brand>p{font:10px/1.5 'Courier New',monospace;letter-spacing:2px;color:#91a4aa;margin:16px 0 0}
+.helm-wallpaper-signature{position:absolute;right:35px;bottom:29px;display:flex;align-items:center;gap:12px;color:#71858b;font:8px/1.5 'Courier New',monospace;letter-spacing:1px}
+.helm-wallpaper-signature>span{display:block;width:23px;height:1px;background:#bfd65080}
+.desktop-entering .helm-wallpaper *{animation-play-state:paused}
+@keyframes helm-particle-wander{
+  0%,100%{transform:translate3d(0,0,0);opacity:.45}
+  30%{transform:translate3d(var(--dx),calc(var(--dy)*-.5),0);opacity:.85}
+  65%{transform:translate3d(calc(var(--dx)*.4),var(--dy),0);opacity:.6}
+}
+@media(max-height:730px) and (min-width:721px){
+  .helm-wallpaper-brand{top:22%}
+  .helm-wallpaper-brand>svg{width:83px;height:83px;margin-bottom:16px}
+}
+@media(max-width:1000px){
+  .helm-wallpaper-brand{right:6%;top:30%}
+  .helm-wallpaper-brand>svg{width:86px;height:86px}
+  .helm-wallpaper-brand>strong{font-size:36px}
+  .helm-wallpaper-signature{right:22px;font-size:7px;letter-spacing:.6px}
+}
+@media(max-width:720px){
+  .helm-wallpaper-brand{top:auto;right:9%;bottom:21%;opacity:.8}
+  .helm-wallpaper-brand>svg{width:75px;height:75px;margin-bottom:15px}
+  .helm-wallpaper-brand>strong{font-size:34px}
+  .helm-wallpaper-brand>p{font-size:8px;letter-spacing:1.4px}
+  .helm-wallpaper-sculpture{width:150%;max-width:none;left:-50%;opacity:.8}
+  .helm-wallpaper-signature{right:18px;bottom:20px;max-width:180px;text-align:right;font-size:6px}
+  .helm-wallpaper-particle:nth-child(n+5){display:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .helm-wallpaper-particle{animation:none;opacity:.4}
+}

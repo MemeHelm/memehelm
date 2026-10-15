@@ -1,0 +1,165 @@
+/* MemeHelm palette. The desktop metaphor is independent of the brand colors. */
+:root{
+  color-scheme:dark;
+  --mh-bg:#090b0c;
+  --mh-surface:#10161b;
+  --mh-panel:#151d23;
+  --mh-raised:#1b2730;
+  --mh-input:#0c1217;
+  --mh-text:#edf2f6;
+  --mh-muted:#9baab7;
+  --mh-subtle:#7c8d9a;
+  --mh-line:#364652;
+  --mh-accent:#d7ff00;
+  --mh-accent-soft:#222d18;
+  --brand-accent:var(--mh-accent);
+  color:var(--mh-text);
+  background:var(--mh-bg);
+}
+.desktop-shell{
+  --desk-ink:var(--mh-text);
+  --desk-cream:var(--mh-bg);
+  --desk-orange:var(--mh-accent);
+  --desk-mint:var(--mh-accent-soft);
+  --brand-accent:var(--mh-accent);
+  color:var(--mh-text);
+  background:var(--mh-bg);
+}
+.desktop-topbar,.desktop-taskbar{background:#0e1418;border-color:#3b4b56}
+.desktop-brand .helm-wordmark,.desktop-brand .helm-wordmark>svg,.helm-wordmark>svg{color:var(--mh-text)}
+.wordmark-dot{color:var(--mh-accent)}
+.desktop-topline{color:var(--mh-muted);border-color:var(--mh-line)}
+.desktop-network{color:#c4d59b}
+.desktop-network>i{background:var(--mh-accent);border-color:#879b3a}
+.desktop-wallet{background:var(--mh-accent-soft);border-color:#64763c;color:#dcebba;box-shadow:1px 1px #0007}
+.desktop-wallet:hover{background:#2c3b1c}
+.desktop-shortcut>span{filter:drop-shadow(2px 3px #0009)}
+.desktop-shortcut strong{color:var(--mh-text);background:#10171dd9}
+.desktop-shortcut:hover{background:#d7ff000a;border-color:#7c8e43}
+.desktop-shortcut:focus-visible{outline-color:var(--mh-accent)}
+.desktop-window,.desktop-start-menu{background:var(--mh-surface);border-color:var(--mh-line);box-shadow:5px 6px #0008}
+.desktop-window.focused{border-color:#6e8052;box-shadow:7px 8px #0009}
+.desktop-titlebar{background:#19232b;border-color:#394b57;color:var(--mh-muted)}
+.focused>.desktop-titlebar{background:linear-gradient(100deg,#2b3822,#1d292e 52%,#182129);color:var(--mh-text)}
+.desktop-titlebar h2{color:inherit}
+.desktop-window-body{background:var(--mh-surface);scrollbar-color:#455b68 var(--mh-bg)}
+.desktop-window-controls>button{background:#202d36;color:var(--mh-text);border-color:#5a6e7b;box-shadow:1px 1px #0008}
+.desktop-window-controls>button:hover{background:#33414a}
+.window-minimize>span{background:var(--mh-text)}
+.window-maximize>span{border-color:var(--mh-text)}
+.desktop-window-controls>.window-close:hover{background:#673d39;color:#fff0eb;border-color:#a57569}
+.desktop-resize{background:repeating-linear-gradient(135deg,transparent 0 3px,#91a56d 3px 4px,transparent 4px 6px)}
+.desktop-start-button{color:#151b07;background:var(--mh-accent);border-color:#b9d738;box-shadow:2px 2px #0008}
+.desktop-start-button>svg{color:#151b07;--brand-accent:#647b19}
+.desktop-start-button:hover,.desktop-start-button.selected{background:#e4ff54}
+.desktop-tasks>button{background:#172129;border-color:#40535f;color:var(--mh-muted)}
+.desktop-tasks>button.active{background:#25311d;border-color:#8b9f53;color:#e7f1cc;box-shadow:inset 0 -2px var(--mh-accent)}
+.desktop-tasks>button.minimized{background:#10191f;color:#82939f;border-color:#3f535f}
+.desktop-tasks>button:hover{background:#25343d}
+.show-desktop{background:#1a2730;border-color:#4a606c}
+.show-desktop>span:first-child{border-color:#97aeb8}
+.show-desktop>span:last-child{background:#293c45;border-color:#5e7883}
+.desktop-clock{color:var(--mh-text)}
+.desktop-clock>small{color:var(--mh-muted)}
+.desktop-start-menu>div{background:#1c291e;border-color:#415638}
+.desktop-start-menu .helm-wordmark>svg{color:var(--mh-text)}
+.desktop-start-menu nav>button:hover{background:#293725}
+.desktop-start-menu nav strong{color:var(--mh-text)}
+.desktop-start-menu nav>button>svg:last-child{color:var(--mh-accent)}
+.desktop-menu-foot{border-color:var(--mh-line)}
+.welcome-app{background:radial-gradient(ellipse at 90% 0,#d7ff0006,transparent 60%),var(--mh-surface)}
+.welcome-stamp{background:#24301e;border-color:#617249}
+.welcome-stamp>svg{color:var(--mh-text)}
+.welcome-intro h1{color:var(--mh-text)}
+.welcome-intro h1>span{color:var(--mh-accent)}
+.welcome-intro>p{color:var(--mh-muted)}
+.welcome-chain>i{background:var(--mh-accent);border-color:#82983b}
+.welcome-chain>span{color:#596c77}
+.welcome-tool,.welcome-tool.orange,.welcome-tool.mint,.welcome-tool.yellow{background:#172127;border-color:#465949;box-shadow:3px 3px #0006}
+.welcome-tool:hover{background:#202c22;border-color:#9aac53;box-shadow:4px 6px #0008}
+.welcome-tool>strong{color:var(--mh-text)}
+.welcome-tool>svg:last-child{color:#afc66e}
+.welcome-projects{background:#141f23;border-color:#3f514d}
+.welcome-bottom{border-color:var(--mh-line)}
+.guide-tabs{background:#141e24;border-color:#4d6246}
+.guide-tabs>button{background:#1d2930;border-color:#475d66}
+.guide-tabs>button.active{background:var(--mh-surface);color:var(--mh-text);box-shadow:inset 0 3px var(--mh-accent)}
+.guide-content h1,.guide-content li h2{color:var(--mh-text)}
+.guide-content li>span{background:#28351d;border-color:#6c8342;color:var(--mh-accent)}
+.calculator-app{background:linear-gradient(145deg,#141d22,#101718)}
+.calculator-intro h1{color:var(--mh-text)}
+.calculator-input>div{background:var(--mh-input);border-color:#506344;box-shadow:inset 1px 2px #0005}
+.calculator-input input{color:var(--mh-text)}
+.calculator-input>div>span{color:var(--mh-muted)}
+.calculator-shares strong{color:var(--mh-accent)}
+.calculator-shares small,.calculator-shares>span{color:#91a37c}
+.calculator-range strong{color:var(--mh-accent)}
+.calculator-totals>div{background:#202b1c;border-color:#526a3b}
+.calculator-totals>div:last-child{background:#17242a;border-color:#435963}
+.calculator-totals strong{color:#ddebd0}
+.desktop-eyebrow,.welcome-chain,.welcome-tool>span,.welcome-projects strong,.welcome-projects small,.welcome-projects>button,.welcome-bottom,.welcome-bottom>button,.guide-content>p,.guide-content li p,.guide-tabs>button,.calculator-intro p,.calculator-input,.calculator-shares>div>span,.calculator-range>span,.calculator-totals span,.calculator-note,.desktop-start-menu nav small,.desktop-menu-foot,.desktop-start-menu>div>span{color:var(--mh-muted)}
+.content,.deck-heading h1,.page-title h1,.section-title h2,.empty h3,.project-name strong,.project-focus h3,.focus-placeholder h3,.capability h3,.preview-token h3,.payout-card h2,.treasury-principles h3,.task-option strong,.copilot-context strong,.copilot-example h3,.example-project,.metric strong,.modal h2{color:var(--mh-text)}
+.deck-heading h1>span{color:#b9ce92}
+.button{box-shadow:2px 2px #0007;border-color:#637441}
+.primary{background:var(--mh-accent);color:#131a04;border-color:#bddb30}
+.primary:hover:not(:disabled){background:#e3ff4a}
+.secondary{background:#233019;color:#dce9c2;border-color:#5c7340}
+.secondary:hover:not(:disabled){background:#304020;border-color:#879e55}
+.text-button,.text-button:hover,.contract-link{color:#ccdf97}
+.metric,.metric:nth-child(2),.metric:nth-child(3),.metric:nth-child(4){background:#151f25;border-color:#3a4f5b}
+.metric>div{color:#a9bbca}
+.metric:nth-child(3) strong,.metric:nth-child(4) strong{color:#d3e7ad}
+.panel{background:var(--mh-panel);border-color:#41545f}
+.section-title{background:#1b272e;border-color:#344954}
+.section-title>svg,.step-number,.capability-top,.payout-head,.treasury-principles svg,.vault-setup svg{color:#b5cb83}
+.count,.badge,.badge.green{background:#28361e;color:#d0e2ad;border-color:#5d7740}
+.badge.amber{background:#352e1d;color:#e5ca8d;border-color:#7d6840}
+.empty-icon,.token-avatar,.token-avatar.large{background:#27351d;border-color:#6b8346;color:#d6eb9d;box-shadow:2px 2px #0005}
+.panel-bottom{background:#121c21;border-color:#334651}
+.project-row{border-color:#334954}
+.project-row.selected{background:#25331f}
+.focus-actions,.focus-actions button{border-color:#354a55}
+.focus-actions button{color:#d3e4b2}
+.focus-placeholder{background:#131e23}
+.focus-placeholder>svg{color:#8ba174}
+.capability,.capability:nth-child(2),.capability:nth-child(3){background:#18242b;border-color:#405964;box-shadow:2px 2px #0005}
+.capability:hover{background:#26331f;border-color:#869d50}
+.capability-arrow{color:#b4cb7e}
+input,textarea,select{color:var(--mh-text);background:var(--mh-input);border-color:#506570;box-shadow:inset 1px 2px #0005}
+input::placeholder,textarea::placeholder{color:#80919f}
+input[type=range],input[type=checkbox]{accent-color:var(--mh-accent)}
+select,input[type=number]{color-scheme:dark}
+.field>span{color:#cad7df}
+.input-action button{background:#26351d;color:#daebbb;border-color:#5d7542}
+.launch-steps>span:not(:empty){color:#9aaaaf}
+.launch-steps i{background:#1c292f;border-color:#4b626b;color:#b2c1c9}
+.launch-steps .active{color:#d4e9a7!important}
+.launch-steps .active>i{background:#2e3d1b;border-color:#879e43;color:var(--mh-accent)}
+.launch-steps>span:empty{background:#3e545f}
+.split-control>div{color:#bdcdb0}
+.split-control strong{color:#c2d2b5}
+.split-control>div:first-child strong,.prepared>strong,.payout-amount{color:var(--mh-accent)}
+.vault-setup,.advanced-settings,.preview-token,.prepared,.treasury-principles>div{border-color:#3d535c}
+.preview-token{background:radial-gradient(ellipse,#d7ff0008,transparent 70%)}
+.token-avatar.large>svg{color:var(--mh-text)}
+dl>div{border-color:#354a55}
+dd{color:#d3e1c4}
+.transaction-note{color:#d3bd7b}
+.prepared code{color:#d3e6a9}
+.treasury-principles{background:#142025}
+.task-option{background:#141f25;border-color:#3e5662}
+.task-option.selected{background:#27361e;border-color:#7f9850;box-shadow:inset 3px 0 var(--mh-accent)}
+.task-option svg{color:#afc58b}
+.radio{background:#10171c;border-color:#6c827f}
+.selected>.radio{border-color:var(--mh-accent)}
+.copilot-context,.example-project{border-color:#3b515c}
+.ai-result p{color:#c1d0db}
+.example-project .token-avatar{background:#2a3b20}
+.sample-content{border-color:var(--mh-accent);color:#c3d2dd}
+.busy{background:#24331c;border-color:#6e8842;color:#deedbd}
+.spinner{border-color:#718b4d;border-right-color:var(--mh-accent)}
+.notice.error{background:#30221d;border-color:#825b46;color:#f0c5a6}
+.notice.success{background:#22331e;border-color:#637e47;color:#d1e8ba}
+.modal-overlay{background:#030608bb}
+.modal{background:#131d22;border-color:#5f754b;box-shadow:6px 7px #0009}
+.eyebrow,.metric p,.project-name small,.project-focus>p,.focus-placeholder p,.capability p,.page-title p,.field small,.split-control>small,.vault-setup small,.advanced-settings summary,dt,.transaction-note p,.summary-help,.prepared>p,.checkbox,.payout-address,.payout-card>small,.treasury-principles p,.task-option small,.copilot-context p,.inline-note,.ai-result small,.example-project small,.example-footnote,.panel-copy,.panel-bottom{color:var(--mh-muted)}

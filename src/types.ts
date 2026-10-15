@@ -1,0 +1,7 @@
+export type Page = 'home' | 'overview' | 'launch' | 'treasury' | 'copilot' | 'calculator' | 'guide';
+export type Project = {id:string;name:string;symbol:string;description:string;tokenAddress:string|null;vaultAddress:string|null;launchHash:string|null;status:'draft'|'imported'|'launched';chainId:number;createdAt:string};
+export type WorkspaceStatus = {network:{id:number;name:string;portal:string;vaultPortal:string;guardian:string;explorer:string;source:string};chain:{ok:boolean;block:string|null;error:string|null};aiConfigured:boolean;factory:string|null;auditReferenceBNB:string;mode:string;auditStatus:string};
+export type Snapshot = {name:string;symbol:string;totalSupply:string|null;decimals:number|null;checkedAt:string;vault:null|{address:string;projectTreasury:string;auditTreasury:string;auditBps:number;totalReceived:string;totalReleased:string;projectPending:string;auditPending:string;auditReleased:string;auditAccrued:string}};
+export type Artifact = {abi:any[];bytecode:`0x${string}`;deployedBytecode:`0x${string}`};
+export type LaunchDraft = {name:string;symbol:string;description:string;meta:string;projectTreasury:string;auditTreasury:string;factory:string;auditBps:number;buyTaxRate:number;sellTaxRate:number;taxDays:number;antiFarmerDays:number;initialBuy:string};
+export type Prepared = {chainId:number;to:`0x${string}`;data:`0x${string}`;value:string;salt:string;predictedToken:string;settings:LaunchDraft};

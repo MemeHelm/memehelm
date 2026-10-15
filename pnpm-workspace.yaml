@@ -1,0 +1,7 @@
+minimumReleaseAgeExclude:
+  - viem@2.57.7
+storeDir: ../.pnpm-store
+ignoreScripts: true
+fetchTimeout: 300000
+networkConcurrency: 8
+verifyDepsBeforeRun: error

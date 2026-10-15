@@ -1,0 +1,12 @@
+node_modules/
+dist/
+vendor/
+.env
+.env.*
+!.env.example
+data/
+artifacts/
+contracts/out/
+contracts/cache/
+*.log
+qa/
