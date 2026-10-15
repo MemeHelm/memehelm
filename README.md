@@ -10,6 +10,9 @@ Current release: **local development prototype, BNB Testnet only**. This app is 
 - English project, launch, treasury, and copilot tools; a working split calculator that carries its allocation into the launch form; and a user-facing Quick Guide.
 - A brief, skippable brand entrance, staggered desktop reveal, hover feedback, and interruptible window opening/minimizing/closing transitions. Reduced-motion preferences bypass the entrance and remove animation. Font readiness is bounded so a slow font cannot block the desktop.
 - An original dark brand wallpaper with static sculpted curves and small glowing particles that wander independently. Background layers never intercept clicks.
+- A four-step launch wizard with per-step validation, a live token preview, community links, editable revenue destinations, a full review, and wallet-confirmed testnet launch. Drafts can be saved and reopened without creating duplicates. Local image selection previews PNG/JPEG/WebP; image and JSON metadata still need uploaded IPFS links.
+- AI drafts are saved privately per project. Users can return to previous drafts, copy them, and explicitly publish or hide an update after publishing the project's page. Requests are capped and parallel generations for the same project are rejected.
+- Optional project pages at `/project/:id`, with an onchain token check before publication, community links, live vault balances, a launch receipt and approved updates. Unpublishing hides the page; private drafts and launch settings are excluded from the public API.
 - User-facing pages omit developer configuration and internal progress information. Engineering setup remains in this README.
 - Browser wallet connection and explicit switching to BNB Testnet (chain 97).
 - A wallet-signed testnet factory deployment flow.
@@ -55,7 +58,7 @@ Copy `.env.example` to `.env`. Private environment files are ignored. The server
 | `AI_MODEL` | Model identifier accepted by that provider. |
 | `SPLIT_FACTORY_ADDRESS` | Optional address after deploying this build's factory on BNB Testnet. |
 
-Without a model configuration, AI stays disabled. On a generation request the server shares the selected project's description and observed chain facts with the configured provider. There is no automatic posting or transaction execution.
+Without a model configuration, AI stays disabled. On a generation request the server shares the selected project's description and observed chain facts with the configured provider. There is no automatic posting or transaction execution. Credentials remain in the ignored local `.env` and are never shipped in browser assets. Public project pages remain local until the application is separately deployed; do not expose this single-user server as a hosted product before adding authentication and per-user ownership.
 
 ## First testnet session
 

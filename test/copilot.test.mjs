@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { generateCopilot } from '../server/copilot.mjs';
 test('an unconfigured model fails explicitly instead of generating a fake draft',async()=>{
  const saved={...process.env};delete process.env.AI_API_KEY;
- try{await assert.rejects(()=>generateCopilot({project:{},facts:null,task:'post'}),/not configured/);}finally{process.env=saved;}
+ try{await assert.rejects(()=>generateCopilot({project:{},facts:null,task:'post'}),/temporarily unavailable/);}finally{process.env=saved;}
 });
 test('model receives bounded factual context and no signing tools',async()=>{
  const saved={...process.env};Object.assign(process.env,{AI_API_BASE:'https://model.example/v1',AI_API_KEY:'local-test-secret',AI_MODEL:'test-model'});

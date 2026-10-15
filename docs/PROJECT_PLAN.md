@@ -23,7 +23,7 @@ The initial code is not a revenue guarantee. Without launched projects, trading 
 
 ## Required founder decisions before a public product
 
-1. Final brand name and domain.
+1. Public domain and deployment for the selected MemeHelm brand.
 2. Which revenue belongs to the project and which funds the platform.
 3. Reserve percentage, ownership of the reserve wallet, withdrawal governance and whether the target stops or continues after an audit.
 4. Model provider, monthly spending ceiling and initial hosting budget.

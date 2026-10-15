@@ -2,7 +2,7 @@ import { hexToBigInt, numberToHex } from 'viem';
 export type Provider={request(args:{method:string;params?:any[]}):Promise<any>;on?:(event:string,listener:(value:any)=>void)=>void;removeListener?:(event:string,listener:(value:any)=>void)=>void};
 declare global { interface Window { ethereum?:Provider } }
 export function provider(){if(!window.ethereum)throw new Error('Open this app in a browser with an EVM wallet extension, such as MetaMask or Rabby.');return window.ethereum;}
-export async function connectWallet(){const accounts=await provider().request({method:'eth_requestAccounts'});return accounts[0] as string;}
+export async function connectWallet(){await provider().request({method:'eth_requestAccounts'});await switchTestnet();const accounts=await provider().request({method:'eth_accounts'});if(!accounts[0])throw new Error('Choose an account in your wallet to continue.');return accounts[0] as string;}
 export async function switchTestnet(){
   const wallet=provider();
   try{await wallet.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x61'}]});}
@@ -12,9 +12,13 @@ export async function sendTestnet(from:string,tx:{to?:string;data?:string;value?
   const wallet=provider();
   const accounts=await wallet.request({method:'eth_accounts'});
   if(accounts[0]?.toLowerCase()!==from.toLowerCase())throw new Error('The active wallet changed. Reconnect before continuing.');
+  if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==97)await switchTestnet();
   if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==97)throw new Error('Switch your wallet to BNB Testnet first.');
   const request={from,...(tx.to?{to:tx.to}:{}),data:tx.data||'0x',value:numberToHex(BigInt(tx.value||'0'))};
   const estimated=await wallet.request({method:'eth_estimateGas',params:[request]});
+  const currentAccounts=await wallet.request({method:'eth_accounts'});
+  if(currentAccounts[0]?.toLowerCase()!==from.toLowerCase())throw new Error('The active wallet changed. Reconnect before continuing.');
+  if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==97)throw new Error('The wallet network changed. Switch back to BNB Testnet before continuing.');
   const hash=await wallet.request({method:'eth_sendTransaction',params:[{...request,gas:numberToHex(hexToBigInt(estimated)*120n/100n)}]});
   for(let attempt=0;attempt<120;attempt++){
     const receipt=await wallet.request({method:'eth_getTransactionReceipt',params:[hash]});

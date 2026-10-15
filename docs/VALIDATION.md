@@ -1,6 +1,6 @@
 # Validation record
 
-Date: 2026-10-15 (Asia/Shanghai).
+Updated: 2026-10-16 (Asia/Shanghai). The original contract/fork proof below was recorded on 2026-10-15.
 
 ## Completed
 
@@ -9,7 +9,7 @@ Date: 2026-10-15 (Asia/Shanghai).
 | Solidity artifact compilation | Passed: solc 0.8.26, optimized, Shanghai-compatible local deployment artifacts |
 | TypeScript compilation | Passed: `tsc --noEmit` |
 | English application production build | Passed: Vite 8.3.4 |
-| Node validation, API, model-context and local-EVM tests | 16 tests passed across the complete suite |
+| Node validation, API, model-context, wallet guards and local-EVM tests | 22 tests passed across the complete suite |
 | Foundry contract suite | 8 tests passed, including 256 revenue-conservation fuzz cases |
 | Live BNB Testnet fork integration | Passed with Cancun EVM execution |
 | Local static HTTP route | HTTP 200 at `http://127.0.0.1:4318` |
@@ -51,9 +51,19 @@ These are local simulations on public-chain state. There is **no public transact
 - Invalid address inputs are rejected.
 - Missing token or model configuration produces explicit errors.
 - The model receives bounded project/chain context, with no signing/execution tools.
-- Model transport was tested with a mocked provider. No real model API key has been configured or charged.
+- Model transport was tested with a mocked provider and then a real compatible provider on 2026-10-16. The live draft was verified in a disposable private workspace. The credential remains server-only; no production usage or billing guarantee is implied.
 
 ## Verification limits
+
+### Guided launch, live AI and project pages — 2026-10-16
+
+- Implemented four actual launch steps with validation, token/image preview, metadata download, community links, saved-draft restoration, review and wallet signing. Image upload remains a local preview plus an uploaded IPFS link, as requested; no storage-provider credential is required.
+- Configured the provided compatible model service only in the ignored server environment. Model discovery succeeded; a small generation through the complete API produced a real English draft, persisted it privately and confirmed that the draft was not publicly accessible. The disposable check project was removed. A first direct-runtime generation timed out; using the existing system proxy in the local server configuration resolved it. No credential values are included in this record or the repository.
+- Added persistent per-project draft history, request limits, explicit update sharing and unpublishing. Public responses whitelist project and update fields. Project publication requires an existing token contract with matching onchain symbol and ERC-20 read methods; private drafts and launch configuration are excluded.
+- Added public project-page routes, live vault reads, community links, launch receipt links and creator-approved updates. The preview still runs locally; this is not an internet deployment or production multi-user authorization system.
+- Wallet connection requests BNB Testnet. Transactions recheck the account and network immediately before sending. Real wallet-signed public-testnet creation and payouts remain pending; no transaction was broadcast by this development session.
+- Browser selection still timed out on the existing preview tab (`Emulation.setFocusEmulationEnabled`), so pointer, visual and mobile browser QA remain unverified. Automated code, API/privacy, wallet-guard and route-render checks do not replace those checks.
+- Production build and the 22-test suite passed. Route rendering covers the seven desktop apps and all four launch steps. Client-bundle and Git preflight checks exclude the local credential and environment file.
 
 ### Brand wallpaper and wandering particles — 2026-10-16
 
@@ -98,7 +108,7 @@ These are local simulations on public-chain state. There is **no public transact
 
 - The app's in-app-browser preview could not be inspected: navigation/focus commands timed out. Static HTML HTTP delivery and the build passed, but desktop/mobile visual QA and browser interaction QA remain outstanding.
 - No public wallet-signed testnet transaction has been submitted. The final wallet integration and metadata availability need a human testnet session.
-- No real model provider has been exercised.
+- A real compatible model provider has now been exercised for a private English content draft; long-running production usage and billing controls have not been validated.
 - No production deployment, production multi-user authorization, mainnet rollout or third-party audit has occurred.
 
 ## Next acceptance session
