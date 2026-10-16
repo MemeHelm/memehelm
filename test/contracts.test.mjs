@@ -2,9 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import ganache from 'ganache';
 import { createPublicClient, createWalletClient, custom, parseEther, encodeAbiParameters, parseAbi, zeroAddress, parseEventLogs } from 'viem';
-import { bscTestnet } from 'viem/chains';
 import { compileContracts } from '../scripts/compile-contracts.mjs';
-import { NETWORK } from '../shared/config.mjs';
+import { NETWORK,CHAIN } from '../shared/config.mjs';
 const extra={'test/Receiver.sol':{content:`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 interface IVault { function release(address payable) external; }
@@ -15,8 +14,8 @@ contract ForceSend { constructor() payable {} function force(address payable tar
 test('vault revenue accounting, isolation, factory guards and guardian upgrades',async t=>{
  const compiled=compileContracts(extra);
  const contracts=compiled['src/RevenueSplitVault.sol'];
- const provider=ganache.provider({chain:{chainId:97,hardfork:'shanghai'},wallet:{totalAccounts:6,unlockedAccounts:[NETWORK.vaultPortal,NETWORK.guardian]},logging:{quiet:true}});
- const transport=custom({request:({method,params})=>provider.request({method:method==='wallet_sendTransaction'?'eth_sendTransaction':method,params})}),chain=bscTestnet;
+ const provider=ganache.provider({chain:{chainId:NETWORK.id,hardfork:'shanghai'},wallet:{totalAccounts:6,unlockedAccounts:[NETWORK.vaultPortal,NETWORK.guardian]},logging:{quiet:true}});
+ const transport=custom({request:({method,params})=>provider.request({method:method==='wallet_sendTransaction'?'eth_sendTransaction':method,params})}),chain=CHAIN;
  const client=createPublicClient({chain,transport}),accounts=await provider.request({method:'eth_accounts',params:[]});
  const [deployer,project,audit,stranger]=accounts;
  const wallet=(account)=>createWalletClient({account,chain,transport});
@@ -34,7 +33,7 @@ test('vault revenue accounting, isolation, factory guards and guardian upgrades'
   const read=(name,args=[],address=vault)=>client.readContract({address,abi:vaultAbi,functionName:name,args});
   await t.test('rejects calls outside VaultPortal, unsupported quotes and malformed recipient data',async()=>{
    await assert.rejects(()=>client.simulateContract({...callNew(),account:stranger}),/Only VaultPortal/);
-   await assert.rejects(()=>client.simulateContract({...callNew(data(),project),account:NETWORK.vaultPortal}),/Native BNB only/);
+   await assert.rejects(()=>client.simulateContract({...callNew(data(),project),account:NETWORK.vaultPortal}),/Native ETH only/);
    await assert.rejects(()=>client.simulateContract({...callNew(data(project,project)),account:NETWORK.vaultPortal}),/Treasury addresses must differ/);
    await assert.rejects(()=>client.simulateContract({...callNew(data(project,audit,10001)),account:NETWORK.vaultPortal}),/Audit share exceeds/);
   });

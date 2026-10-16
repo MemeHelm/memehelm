@@ -13,11 +13,11 @@ import {ITaxProcessor} from "../src/flap/ITaxProcessor.sol";
 contract FlapTestnetForkTest is Test {
     function testLaunchWithLiveTestnetContracts() public {
         if (!vm.envOr("RUN_FLAP_FORK", false)) { vm.skip(true); return; }
-        vm.createSelectFork(vm.envOr("BSC_TESTNET_RPC_URL", string("https://bsc-testnet-rpc.publicnode.com")));
-        assertEq(block.chainid, 97);
-        address portal = 0x5bEacaF7ABCbB3aB280e80D007FD31fcE26510e9;
-        IVaultPortal vaultPortal = IVaultPortal(0x027e3704fC5C16522e9393d04C60A3ac5c0d775f);
-        address implementation = 0xE6Ff967a887084c16D0fD71548CF709542cc1557;
+        vm.createSelectFork(vm.envOr("ROBINHOOD_TESTNET_RPC_URL", string("https://rpc.testnet.chain.robinhood.com")));
+        assertEq(block.chainid, 46630);
+        address portal = 0x26605f322f7fF986f381bB9A6e3f5DAb0bEaEb09;
+        IVaultPortal vaultPortal = IVaultPortal(0xe9F7AB7DE8FB8756acbB6a1cd13316a43308197B);
+        address implementation = 0x7777C8743C88B3aff3cf262135beF2c8b2e83333;
         RevenueSplitFactory factory = new RevenueSplitFactory();
         bytes32 salt;
         for (uint256 nonce = 1; nonce < 2000000; nonce++) {
@@ -26,7 +26,7 @@ contract FlapTestnetForkTest is Test {
         }
         require(salt != bytes32(0), "No vanity salt found");
         IVaultPortalTypes.NewTokenV6WithVaultParams memory params;
-        params.name = "Copilot Fork Test";
+        params.name = "MemeHelm Robinhood Fork";
         params.symbol = "CFT";
         params.meta = "QmYwAPJzv5CZsnAzt8auVZRnGi2C1xYNwkGMxmMLNRSz6L";
         params.salt = salt;

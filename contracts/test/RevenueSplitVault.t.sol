@@ -6,8 +6,8 @@ import {UpgradeableBeacon} from "@openzeppelin/proxy/beacon/UpgradeableBeacon.so
 import {VaultUISchema, VaultDataSchema} from "../src/flap/IVaultSchemasV1.sol";
 
 contract RevenueSplitVaultTest is Test {
-    address constant PORTAL = 0x027e3704fC5C16522e9393d04C60A3ac5c0d775f;
-    address constant GUARDIAN = 0x76Fa8C526f8Bc27ba6958B76DeEf92a0dbE46950;
+    address constant PORTAL = 0xe9F7AB7DE8FB8756acbB6a1cd13316a43308197B;
+    address constant GUARDIAN = 0x0000b48720d3B4ED6BC5031768B07F2b59270000;
     address constant PROJECT = address(0x1234);
     address constant AUDIT = address(0x5678);
     address constant TOKEN = address(0x7777);
@@ -15,7 +15,7 @@ contract RevenueSplitVaultTest is Test {
     RevenueSplitVault vault;
 
     function setUp() public {
-        vm.chainId(97);
+        vm.chainId(46630);
         factory = new RevenueSplitFactory();
         vm.prank(PORTAL);
         vault = RevenueSplitVault(payable(factory.newVault(TOKEN, address(0), PROJECT, abi.encode(PROJECT, AUDIT, uint16(1000)))));
@@ -38,10 +38,18 @@ contract RevenueSplitVaultTest is Test {
         vm.expectRevert("Only VaultPortal");
         factory.newVault(TOKEN, address(0), PROJECT, abi.encode(PROJECT, AUDIT, uint16(1000)));
     }
+    function testFactoryRejectsBnbAndRobinhoodMainnet() public {
+        vm.chainId(97);
+        vm.expectRevert("Initial release supports Robinhood Testnet only");
+        new RevenueSplitFactory();
+        vm.chainId(4663);
+        vm.expectRevert("Initial release supports Robinhood Testnet only");
+        new RevenueSplitFactory();
+    }
     function testRejectsBadConfiguration() public {
         vm.prank(PORTAL); vm.expectRevert("Treasury addresses must differ");
         factory.newVault(TOKEN, address(0), PROJECT, abi.encode(PROJECT, PROJECT, uint16(1000)));
-        vm.prank(PORTAL); vm.expectRevert("Native BNB only");
+        vm.prank(PORTAL); vm.expectRevert("Native ETH only");
         factory.newVault(TOKEN, address(1), PROJECT, abi.encode(PROJECT, AUDIT, uint16(1000)));
     }
     function testCannotReinitialize() public {

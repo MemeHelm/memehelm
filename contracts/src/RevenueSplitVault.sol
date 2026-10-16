@@ -11,7 +11,7 @@ import {BeaconProxy} from "@openzeppelin/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin/proxy/beacon/UpgradeableBeacon.sol";
 import {Strings} from "@openzeppelin/utils/Strings.sol";
 
-/// @notice Native-BNB revenue splitter. No trading, AI execution, or owner withdrawals.
+/// @notice Native-ETH revenue splitter. No trading, AI execution, or owner withdrawals.
 /// @dev The immutable launch configuration allocates revenue to two fixed recipients.
 ///      The Flap Guardian owns the beacon and can change this implementation.
 contract RevenueSplitVault is VaultBaseV2, Initializable, ReentrancyGuardUpgradeable {
@@ -66,25 +66,25 @@ contract RevenueSplitVault is VaultBaseV2, Initializable, ReentrancyGuardUpgrade
     }
 
     function description() public view override returns (string memory) {
-        return string.concat("Native BNB split vault. Audit reserve: ", Strings.toString(auditBps),
+        return string.concat("Native ETH split vault. Audit reserve: ", Strings.toString(auditBps),
             " bps. No audit certification is implied. Beacon upgrades are controlled by the Flap Guardian.");
     }
 
     function vaultUISchema() public pure override returns (VaultUISchema memory schema) {
         schema.vaultType = "RevenueSplitVault";
-        schema.description = "Splits native BNB revenue between fixed project and audit-reserve wallets. Guardian-controlled beacon upgrades.";
+        schema.description = "Splits native ETH revenue between fixed project and audit-reserve wallets. Guardian-controlled beacon upgrades.";
         schema.methods = new VaultMethodSchema[](9);
         schema.methods[0] = _method("taxToken", "Token served by this vault", "token", "address", 0);
         schema.methods[1] = _method("projectTreasury", "Project revenue recipient", "recipient", "address", 0);
         schema.methods[2] = _method("auditTreasury", "Audit reserve recipient", "recipient", "address", 0);
         schema.methods[3] = _method("auditBps", "Audit share in basis points (100 = 1%)", "bps", "uint16", 0);
-        schema.methods[4] = _method("totalReceived", "Total native BNB received", "amount", "uint256", 18);
-        schema.methods[5] = _method("totalReleased", "Total native BNB released", "amount", "uint256", 18);
-        schema.methods[6] = _method("pending", "Native BNB available to a fixed recipient", "amount", "uint256", 18);
+        schema.methods[4] = _method("totalReceived", "Total native ETH received", "amount", "uint256", 18);
+        schema.methods[5] = _method("totalReleased", "Total native ETH released", "amount", "uint256", 18);
+        schema.methods[6] = _method("pending", "Native ETH available to a fixed recipient", "amount", "uint256", 18);
         schema.methods[6].inputs = _recipientInput();
-        schema.methods[7] = _method("released", "Native BNB already paid to a recipient", "amount", "uint256", 18);
+        schema.methods[7] = _method("released", "Native ETH already paid to a recipient", "amount", "uint256", 18);
         schema.methods[7].inputs = _recipientInput();
-        schema.methods[8] = _method("release", "Pay available native BNB to the fixed recipient", "", "", 0);
+        schema.methods[8] = _method("release", "Pay available native ETH to the fixed recipient", "", "", 0);
         schema.methods[8].inputs = _recipientInput();
         schema.methods[8].isWriteMethod = true;
     }
@@ -110,7 +110,7 @@ contract RevenueSplitFactory is VaultFactoryBaseV2 {
     event VaultCreated(address indexed token, address indexed vault, address indexed creator);
 
     constructor() {
-        require(block.chainid == 97, "Initial release supports BNB Testnet only");
+        require(block.chainid == 46630, "Initial release supports Robinhood Testnet only");
         RevenueSplitVault implementation = new RevenueSplitVault();
         UpgradeableBeacon upgradeableBeacon = new UpgradeableBeacon(address(implementation));
         upgradeableBeacon.transferOwnership(_getGuardian());
@@ -120,7 +120,7 @@ contract RevenueSplitFactory is VaultFactoryBaseV2 {
     function newVault(address token, address quoteToken, address creator, bytes calldata vaultData)
         external override returns (address vault) {
         require(msg.sender == _getVaultPortal(), "Only VaultPortal");
-        require(quoteToken == address(0), "Native BNB only");
+        require(quoteToken == address(0), "Native ETH only");
         require(token != address(0), "Token is required");
         (address project, address audit, uint16 reserveBps) = abi.decode(vaultData, (address, address, uint16));
         vault = address(new BeaconProxy(beacon,
@@ -132,20 +132,20 @@ contract RevenueSplitFactory is VaultFactoryBaseV2 {
 
     function _validateBeforeLaunch(IVaultFactoryValidationV2.LaunchValidationDataV1 memory data)
         internal pure override returns (bool success, string memory reason) {
-        if (data.quoteToken != address(0)) return (false, "Native BNB only");
+        if (data.quoteToken != address(0)) return (false, "Native ETH only");
         if (data.vaultBps == 0) return (false, "A vault revenue allocation is required");
         return (true, "");
     }
 
     function tokenCreationPolicies() public pure override returns (FactoryPolicy[] memory policies) {
         policies = new FactoryPolicy[](1);
-        policies[0] = FactoryPolicy("quoteToken", "eq", abi.encode(address(0)), "Native BNB only");
+        policies[0] = FactoryPolicy("quoteToken", "eq", abi.encode(address(0)), "Native ETH only");
     }
 
     /// @dev The prototype charges zero factory commission. Any future paid model needs
     ///      explicit product configuration, a new reviewed deployment and user disclosure.
     function vaultDataSchema() public pure override returns (VaultDataSchema memory schema) {
-        schema.description = "Native BNB split; zero factory commission. Fixed recipients and reserve share. Guardian controls beacon upgrades.";
+        schema.description = "Native ETH split; zero factory commission. Fixed recipients and reserve share. Guardian controls beacon upgrades.";
         schema.fields = new FieldDescriptor[](3);
         schema.fields[0] = FieldDescriptor("projectTreasury", "address", "Project revenue wallet", 0);
         schema.fields[1] = FieldDescriptor("auditTreasury", "address", "Separate audit reserve wallet", 0);

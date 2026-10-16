@@ -25,7 +25,7 @@ export function validateLaunch(input) {
   }
   if (!Number.isInteger(clean.taxDays) || clean.taxDays < 365 || clean.taxDays > 36500) throw new Error('Tax duration must be 365–36,500 days.');
   if (!Number.isInteger(clean.antiFarmerDays) || clean.antiFarmerDays < 1 || clean.antiFarmerDays > 365) throw new Error('Anti-farmer duration must be 1–365 days.');
-  if (!/^\d+(\.\d{1,18})?$/.test(clean.initialBuy) || parseEther(clean.initialBuy) > parseEther('1')) throw new Error('Initial buy must be between 0 and 1 tBNB for this testnet release.');
+  if (!/^\d+(\.\d{1,18})?$/.test(clean.initialBuy) || parseEther(clean.initialBuy) > parseEther('1')) throw new Error('Initial buy must be between 0 and 1 test ETH for this testnet release.');
   return clean;
 }
 export function buildLaunchParams(input, salt) {

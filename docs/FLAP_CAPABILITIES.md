@@ -2,6 +2,10 @@
 
 Researched on 2026-10-16. This is internal product planning, not website copy. It records documented protocol capabilities; it does not certify deployment compatibility or completed MemeHelm integrations.
 
+## Current network — Robinhood Chain
+
+As of 2026-10-16, MemeHelm targets Robinhood Chain Testnet (46630), native ETH. The official Robinhood integration guide supports non-tax `TOKEN_V2_PERMIT` and Tax Token V3, V2 migration only, and native ETH only. MemeHelm currently integrates the Tax V3 custom two-recipient vault path; this does not automatically enable other vaults or AI execution. See [ROBINHOOD_MIGRATION.md](ROBINHOOD_MIGRATION.md) for verified addresses and tests. The capability research below is cross-chain; BNB-specific infrastructure must not be advertised on Robinhood without a separate deployment check.
+
 ## Model the choices independently
 
 MEME OS mode names are product choices, not Flap protocol primitives. For MemeHelm, separate:
@@ -41,9 +45,11 @@ AI assistance can accompany several revenue arrangements. A split vault does not
 
 Start with creator-led launches and revenue distribution. Add the official Split Vault and current Gift Vault V2 paths only after ABI, live read-only factory/schema checks, fork simulation, payout reads, and wallet review behavior are verified. Build an agent vault as a separate capability with explicit execution limits and runtime cost controls. Do not place unimplemented modes into a working launch selector.
 
-The existing MemeHelm application still uses its original testnet-only custom two-recipient vault path. This research did not deploy contracts, submit proofs, invoke paid AI services, broadcast transactions, or enable new launch modes.
+MemeHelm now uses its custom two-recipient vault path on Robinhood Testnet. This capability research did not deploy contracts, submit proofs, invoke paid AI services, broadcast transactions, or enable new launch modes.
 
 ## Primary sources
+
+- [Robinhood Chain integration guide](https://docs.flap.sh/flap/developers/token-launcher-developers/robinhood-integration-guide.md)
 
 - [Flap overview](https://docs.flap.sh/flap)
 - [Portal vs VaultPortal](https://docs.flap.sh/flap/developers/basic-and-mechanism/portal-vs-vaultportal)

@@ -7,6 +7,7 @@
 - Show transaction details that help users decide: the actual network, fees, recipients, split, wallet confirmation, and material contract risks. Do not disguise testnet transactions as mainnet transactions.
 - Examples must be labeled as examples. Do not invent live users, transactions, revenue, market metrics, reviews, partnerships, or AI responses.
 - Preserve the wallet-signing boundary and existing testnet restrictions. Never request a seed phrase or private key.
+- Target Robinhood Chain Testnet (46630) with native ETH and the official Robinhood Flap deployment. Do not use BSC addresses, cached factories, balances or draft configuration. Keep mainnet transactions blocked.
 - Base launch choices on Flap's supported capabilities, not MEME OS mode names. Read docs/FLAP_CAPABILITIES.md before adding a mode. Distinguish token type, revenue routing, tax allocation, and AI operations; present a launch mode only after its complete path is integrated.
 - Keep motion restrained: a brief, skippable brand entrance; staggered desktop reveal; and short, interruptible window transitions. Respect reduced-motion preferences. Never invent loading percentages, connection checks, transaction progress, or developer-style boot logs.
 - Keep the wallpaper clean and atmospheric: static dark sculpted curves with restrained neon accents and a few small glowing particles wandering independently. Animate the points, not the lines or ribbons. Avoid pixel clouds, stepped terrain, dense dot patterns, and a large circular plate behind the brand mark.

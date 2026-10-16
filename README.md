@@ -1,8 +1,8 @@
 # MemeHelm
 
-**Launch it. Steer it.** An English-language creator workspace for **BNB Chain + Flap**.
+**Launch it. Steer it.** An English-language creator workspace for **Robinhood Chain + Flap**.
 
-Current release: **local development prototype, BNB Testnet only**. This app is not affiliated with or endorsed by Flap.
+Current release: **local development prototype, Robinhood Testnet only**. This app is not affiliated with or endorsed by Robinhood or Flap.
 
 ## What is implemented
 
@@ -14,16 +14,16 @@ Current release: **local development prototype, BNB Testnet only**. This app is 
 - AI drafts are saved privately per project. Users can return to previous drafts, copy them, and explicitly publish or hide an update after publishing the project's page. Requests are capped and parallel generations for the same project are rejected.
 - Optional project pages at `/project/:id`, with an onchain token check before publication, community links, live vault balances, a launch receipt and approved updates. Unpublishing hides the page; private drafts and launch settings are excluded from the public API.
 - User-facing pages omit developer configuration and internal progress information. Engineering setup remains in this README.
-- Browser wallet connection and explicit switching to BNB Testnet (chain 97).
+- Browser wallet connection and explicit switching to Robinhood Testnet (chain 46630).
 - A wallet-signed testnet factory deployment flow.
-- A Flap `newTokenV6WithVault` launch builder for native-BNB Tax Token V3, including CREATE2 `7777` salt preparation, exact parameter encoding, and wallet gas simulation before signing.
+- A Flap `newTokenV6WithVault` launch builder for native-ETH Tax Token V3, including CREATE2 `7777` salt preparation, exact parameter encoding, and wallet gas simulation before signing.
 - A beacon-backed revenue-split vault inheriting the official `VaultBaseV2`, with a factory inheriting `VaultFactoryBaseV2`.
 - Project and audit-reserve recipients are fixed when each vault is created; payouts use independent pull payments. Any caller can trigger a payment, but its destination cannot be changed.
 - The beacon is owned by the official Flap Guardian. The deployer does **not** retain an upgrade path. Guardian upgrades can alter the implementation and its behavior; displayed shares are not an absolute immutability guarantee.
 - Local project drafts/imports, launch receipt verification, native treasury reads and a model-backed content/brief/plan generator.
 - Explicit missing-data states: no made-up prices, holder counts, trading volume, AI answers, or audit badges.
 
-The app has not deployed a factory or token on a public network. A read-only fork of the live BNB Testnet contracts has successfully simulated token creation, custom-vault registration, actual tax dispatch and both recipient payouts. A real wallet-signed public-testnet session is the next integration milestone.
+The app has not deployed a factory or token on a public network. The current Robinhood migration has passed a read-only fork of the live Robinhood Testnet contracts, which successfully simulated token creation, custom-vault registration, actual tax dispatch and both recipient payouts. A real wallet-signed public-testnet session is the next integration milestone.
 
 ## Start locally
 
@@ -52,33 +52,33 @@ Copy `.env.example` to `.env`. Private environment files are ignored. The server
 
 | Variable | Purpose |
 | --- | --- |
-| `BSC_TESTNET_RPC_URL` | BNB Testnet JSON-RPC endpoint. The server checks chain ID 97. |
+| `ROBINHOOD_TESTNET_RPC_URL` | Robinhood Testnet JSON-RPC endpoint. The server checks chain ID 46630. |
 | `AI_API_BASE` | A chat-completions compatible base URL, for example your provider's `/v1` endpoint. |
 | `AI_API_KEY` | Server-only model credential. |
 | `AI_MODEL` | Model identifier accepted by that provider. |
-| `SPLIT_FACTORY_ADDRESS` | Optional address after deploying this build's factory on BNB Testnet. |
+| `ROBINHOOD_SPLIT_FACTORY_ADDRESS` | Optional address after deploying this build's factory on Robinhood Testnet. |
 
 Without a model configuration, AI stays disabled. On a generation request the server shares the selected project's description and observed chain facts with the configured provider. There is no automatic posting or transaction execution. Credentials remain in the ignored local `.env` and are never shipped in browser assets. Public project pages remain local until the application is separately deployed; do not expose this single-user server as a hosted product before adding authentication and per-user ownership.
 
 ## First testnet session
 
-1. Open the app in a browser with an injected EVM wallet. Obtain **tBNB** from the [BNB Chain testnet faucet](https://www.bnbchain.org/en/testnet-faucet).
-2. In **Launchpad**, connect your wallet and enable revenue splits. Review the factory activation transaction in your wallet. The wallet flow selects BNB Testnet and uses test gas.
+1. Open the app in a browser with an injected EVM wallet. Obtain **test ETH** from the [Robinhood Chain testnet faucet](https://faucet.testnet.chain.robinhood.com).
+2. In **Launchpad**, connect your wallet and enable revenue splits. Review the factory activation transaction in your wallet. The wallet flow selects Robinhood Testnet and uses test gas.
 3. In **Launchpad**, enter a token name, symbol and description. Download the metadata template, replace its image placeholder and pin valid image/metadata content on IPFS. Enter the real metadata CID.
 4. Choose separate project and audit-reserve wallets. Review the reserve share and tax settings. The UI's 10% reserve and 3% buy/sell tax are **editable draft defaults**, not an agreed business fee model.
 5. Prepare the launch. The server checks the network, the factory's beacon owner and the implementation bytecode against the local build, then finds an unused vanity address.
 6. Review the **exact** recipients, split, taxes and optional initial buy, then request the wallet signature. `eth_estimateGas` runs first; an incompatible or reverting launch stops before submission.
 7. After confirmation, the app verifies the Flap event and saves the project. In **Treasury**, inspect claimable balances and request a wallet-signed release to each fixed recipient.
 
-Actual public-testnet launch compatibility must be verified against the deployed contracts. Flap's published BNB testnet and mainnet versions differ; documentation alone is not proof of a completed integration.
+Actual public-testnet launch compatibility must be verified against the deployed contracts. Flap's published Robinhood testnet and mainnet versions differ; documentation alone is not proof of a completed integration.
 
 ## Revenue and audit budget
 
-- The vault splits **only the native BNB it actually receives**. It does not receive every trading fee or all trade volume. Flap's protocol processing happens upstream.
+- The vault splits **only the native ETH it actually receives**. It does not receive every trading fee or all trade volume. Flap's protocol processing happens upstream.
 - This prototype charges **zero separate factory commission**. Reserve share, platform pricing and platform recipient addresses have not been finalized. No hidden platform address is embedded.
 - The audit reserve is an accounting destination, not a certification. It does not automatically pay anyone, and a deposit does not grant a low-risk badge.
-- Flap's current guide quotes **0.5 BNB per factory** for its partner audit/low-risk-badge path. Recheck pricing and scope when ready. Changes or repeat reviews may have separate terms.
-- **tBNB cannot pay for a real audit**. A real audit reserve needs real mainnet income after a separately reviewed mainnet release.
+- Flap's current guide quotes **0.16 ETH per factory** for its partner audit/low-risk-badge path. Recheck pricing and scope when ready. Changes or repeat reviews may have separate terms.
+- **test ETH cannot pay for a real audit**. A real audit reserve needs real mainnet income after a separately reviewed mainnet release.
 - Mainnet writes are deliberately blocked in both the wallet adapter and the factory constructor. Moving to mainnet requires a new reviewed release and deployment.
 
 ## Verification
@@ -103,6 +103,8 @@ pnpm contracts:test:fork
 ```
 
 The fork command uses Cancun-compatible EVM execution because the deployed Flap contracts require those instructions. It reads the public testnet and performs all writes locally; it never broadcasts a transaction.
+
+Robinhood-specific network/contract references and migration evidence are in [ROBINHOOD_MIGRATION.md](docs/ROBINHOOD_MIGRATION.md). Old BNB-chain test evidence remains historical and does not certify this migration.
 
 For this workspace, a checksum-verified Foundry v1.8.5 executable is available under ignored `vendor/foundry-v1.8.5/`. It is a local tool, not a required product dependency.
 

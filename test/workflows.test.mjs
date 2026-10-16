@@ -30,7 +30,7 @@ test('community links reject executable URLs, userinfo, and incorrect social hos
 });
 test('AI history persists concurrently and private drafts require explicit publication',async()=>{
   const qa=resolve('qa');await mkdir(qa,{recursive:true});const directory=await mkdtemp(resolve(qa,'workflow-'));
-  const saved={...process.env},originalFetch=globalThis.fetch,originalChainId=publicClient.getChainId,originalCode=publicClient.getCode,originalMulticall=publicClient.multicall;let server;
+  const saved={...process.env},originalFetch=globalThis.fetch,originalChainId=publicClient.getChainId,originalCode=publicClient.getCode,originalReadContract=publicClient.readContract;let server;
   try{
     process.env.DATA_DIRECTORY=directory;Object.assign(process.env,{AI_API_BASE:'https://model.example/v1',AI_API_KEY:'local-test-secret',AI_MODEL:'test-model'});
     let calls=0;globalThis.fetch=async(input,options)=>{if(String(input).startsWith('https://model.example/')){calls++;return new Response(JSON.stringify({choices:[{message:{content:'A private draft based on the project story.'}}]}),{status:200});}return originalFetch(input,options);};
@@ -48,9 +48,9 @@ test('AI history persists concurrently and private drafts require explicit publi
     assert.equal((await post('/copilot',{projectId:created.id,task:'plan'})).status,429);assert.equal(calls,5);
     const store=createWorkspaceStore(directory);
     await store.mutateProjects(records=>{records[0].tokenAddress=valid.projectTreasury;records[0].credential='must-not-leak';});
-    publicClient.getChainId=async()=>97;publicClient.getCode=async()=>'0x6000';publicClient.multicall=async()=>['WRONG',18,1000n];
+    publicClient.getChainId=async()=>46630;publicClient.getCode=async()=>'0x6000';publicClient.readContract=async({functionName})=>functionName==='symbol'?'WRONG':functionName==='decimals'?18:1000n;
     assert.equal((await post(`/projects/${created.id}/publication`,{published:true})).status,400);
-    publicClient.multicall=async()=>['ORBIT',18,1000n];
+    publicClient.readContract=async({functionName})=>functionName==='symbol'?'ORBIT':functionName==='decimals'?18:1000n;
     assert.equal((await post(`/projects/${created.id}/publication`,{published:true})).status,200);
     const shared=await post(`/projects/${created.id}/activity/${history[0].id}/visibility`,{public:true});assert.equal(shared.status,200);
     const visible=await (await originalFetch(endpoint+`/api/public/projects/${created.id}`)).json();assert.equal(visible.activity.length,1);assert.equal(visible.project.draft,undefined);assert.equal(visible.project.credential,undefined);assert.equal(visible.activity[0].model,undefined);
@@ -58,9 +58,13 @@ test('AI history persists concurrently and private drafts require explicit publi
     assert.equal((await originalFetch(endpoint+`/api/public/projects/${created.id}`)).status,404);
     await Promise.all(Array.from({length:8},(_,index)=>store.appendActivity(created.id,{kind:'brief',title:'Concurrent '+index,content:String(index),public:false})));
     assert.equal((await createWorkspaceStore(directory).activity(created.id)).length,13);
+    await store.mutateProjects(records=>records.push({id:'11111111-1111-4111-8111-111111111111',name:'Old chain',symbol:'OLD',chainId:97,published:true,tokenAddress:valid.projectTreasury}));
+    assert.equal((await (await originalFetch(endpoint+'/api/projects')).json()).length,1);
+    assert.equal((await originalFetch(endpoint+'/api/public/projects/11111111-1111-4111-8111-111111111111')).status,404);
+    assert.equal((await originalFetch(endpoint+'/api/projects/11111111-1111-4111-8111-111111111111/activity')).status,400);
   }finally{
     if(server){server.close();server.closeAllConnections();}
-    globalThis.fetch=originalFetch;publicClient.getChainId=originalChainId;publicClient.getCode=originalCode;publicClient.multicall=originalMulticall;process.env=saved;
+    globalThis.fetch=originalFetch;publicClient.getChainId=originalChainId;publicClient.getCode=originalCode;publicClient.readContract=originalReadContract;process.env=saved;
     if(!resolve(directory).startsWith(qa+sep))throw new Error('Unsafe test cleanup path.');await rm(directory,{recursive:true,force:true});
   }
 });

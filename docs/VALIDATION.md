@@ -1,6 +1,6 @@
 # Validation record
 
-Updated: 2026-10-16 (Asia/Shanghai). The original contract/fork proof below was recorded on 2026-10-15.
+Updated: 2026-10-16 (Asia/Shanghai). Current results target Robinhood Chain Testnet. Earlier BNB evidence below is retained as history, not migration proof.
 
 ## Completed
 
@@ -9,15 +9,25 @@ Updated: 2026-10-16 (Asia/Shanghai). The original contract/fork proof below was 
 | Solidity artifact compilation | Passed: solc 0.8.26, optimized, Shanghai-compatible local deployment artifacts |
 | TypeScript compilation | Passed: `tsc --noEmit` |
 | English application production build | Passed: Vite 8.3.4 |
-| Node validation, API, model-context, wallet guards and local-EVM tests | 22 tests passed across the complete suite |
-| Foundry contract suite | 8 tests passed, including 256 revenue-conservation fuzz cases |
-| Live BNB Testnet fork integration | Passed with Cancun EVM execution |
+| Node validation, API, model-context, wallet guards and local-EVM tests | 23 tests passed across the complete suite |
+| Foundry contract suite | 9 tests passed, including 256 revenue-conservation fuzz cases |
+| Live Robinhood Testnet fork integration | Passed with Cancun EVM execution at block 136509923 |
 | Local static HTTP route | HTTP 200 at `http://127.0.0.1:4318` |
-| Live testnet read checks | Chain ID 97, latest block read, Portal/VaultPortal bytecode present |
+| Live testnet read checks | Chain ID 46630; Portal, VaultPortal, Tax Token V3 and Guardian bytecode present; native quote enabled with curve 25 and DEX0 |
 
-## Public-chain fork proof
+## Robinhood migration proof — 2026-10-16
 
-`contracts/test/FlapTestnetFork.t.sol` simulates against the actual deployed BNB Testnet Portal and VaultPortal contracts. The passing expanded test used testnet block **136956386**.
+The migrated `contracts/test/FlapTestnetFork.t.sol` passed against the actual Robinhood Testnet deployment at block **136509923**. It deployed the new factory only inside a local fork, launched a Tax Token V3 through the live Portal/VaultPortal code, verified the token and vault, dispatched protocol tax proceeds and released both fixed recipients' shares. No public transaction was broadcast and no funds were spent.
+
+The 23-test application suite covers wrong-chain RPC and prepared-transaction rejection, disabled or changed native-quote configuration, private AI history/public-page boundaries, and exclusion of old BNB projects from both private and public Robinhood routes. The 9-test Foundry suite includes constructor rejection on BNB Testnet and Robinhood mainnet, alongside 256 accounting fuzz cases. Production compilation and seven app/four wizard-step render checks passed.
+
+Browser storage keys and the default server data directory are scoped to chain 46630. Old BNB records and keys remain untouched and are not reused. Direct ERC-20 reads replace the assumption that Multicall3 exists on the new network. Provider credentials remain server-only and are checked against source and built assets before upload.
+
+A real wallet-signed public-testnet launch and payout session is still pending. Pointer, animation, mobile and screenshot QA remain unverified because preview tab selection timed out. See [ROBINHOOD_MIGRATION.md](ROBINHOOD_MIGRATION.md) for the official references and full scope.
+
+## Historical BNB public-chain fork proof — 2026-10-15
+
+The earlier version of `contracts/test/FlapTestnetFork.t.sol` simulated against the actual deployed BNB Testnet Portal and VaultPortal contracts. That passing expanded test used testnet block **136956386**.
 
 The test deploys our factory locally into the fork; finds an unused `7777` token salt; calls the live protocol's `newTokenV6WithVault`; verifies the new token and vault; dispatches actual protocol tax proceeds; verifies both shares; and releases revenue to the two fixed recipient wallets.
 
@@ -36,7 +46,7 @@ These are local simulations on public-chain state. There is **no public transact
 - Cumulative share accounting, rounding and later deposits.
 - Forced native transfers included without double credit.
 - No repeated claims after payment.
-- Independent payout when another recipient rejects BNB.
+- Independent payout when another recipient rejects native ETH.
 - Reentrancy defense.
 - VaultPortal-only factory creation.
 - Native-only quote guard and invalid recipient/share rejection.
@@ -55,7 +65,7 @@ These are local simulations on public-chain state. There is **no public transact
 
 ## Verification limits
 
-### Guided launch, live AI and project pages — 2026-10-16
+### Guided launch, live AI and project pages — 2026-10-16, before network migration
 
 - Implemented four actual launch steps with validation, token/image preview, metadata download, community links, saved-draft restoration, review and wallet signing. Image upload remains a local preview plus an uploaded IPFS link, as requested; no storage-provider credential is required.
 - Configured the provided compatible model service only in the ignored server environment. Model discovery succeeded; a small generation through the complete API produced a real English draft, persisted it privately and confirmed that the draft was not publicly accessible. The disposable check project was removed. A first direct-runtime generation timed out; using the existing system proxy in the local server configuration resolved it. No credential values are included in this record or the repository.

@@ -15,8 +15,9 @@ test('local API persists drafts and rejects hostile-origin writes',async()=>{
  try{
   const hostile=await post('https://untrusted.example',{name:'Hostile',symbol:'BAD'});assert.equal(hostile.status,400);
   assert.deepEqual(await (await fetch(`${endpoint}/api/projects`)).json(),[]);
-  const valid=await post('http://127.0.0.1:4317',{name:'Orbit Club',symbol:'ORBIT',description:'An English test project.'});assert.equal(valid.status,201);const project=await valid.json();assert.equal(project.status,'draft');assert.equal(project.chainId,97);
+  const valid=await post('http://127.0.0.1:4317',{name:'Orbit Club',symbol:'ORBIT',description:'An English test project.'});assert.equal(valid.status,201);const project=await valid.json();assert.equal(project.status,'draft');assert.equal(project.chainId,46630);
   const list=await (await fetch(`${endpoint}/api/projects`)).json();assert.equal(list.length,1);assert.equal(list[0].id,project.id);
+  const wrongChain=await post('http://127.0.0.1:4317',{name:'Old chain',symbol:'OLD',chainId:97});assert.equal(wrongChain.status,400);
   const malformed=await post('http://127.0.0.1:4317',{name:'Wrong address',symbol:'TEST',tokenAddress:'0x123'});assert.equal(malformed.status,400);
   const snapshot=await fetch(`${endpoint}/api/projects/${project.id}/snapshot`);assert.equal(snapshot.status,400);assert.match((await snapshot.json()).error,/Launch or import/);
  }finally{

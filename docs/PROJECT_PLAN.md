@@ -2,7 +2,7 @@
 
 ## Product
 
-An English-language launch and operations desk for BNB Chain creators using Flap. The first audience is small project teams that want a transparent revenue plan and an AI writing/research assistant without handing over a primary wallet key.
+An English-language launch and operations desk for Robinhood Chain creators using Flap. The first audience is small project teams that want a transparent revenue plan and an AI writing/research assistant without handing over a primary wallet key.
 
 ## Milestones
 
@@ -17,7 +17,7 @@ An English-language launch and operations desk for BNB Chain creators using Flap
 
 ## Budget policy
 
-Do not purchase an audit during development. Use local EVM and BNB Testnet first. Audit-reserve allocations are configurable per project. Keep testnet and real-income accounting separate. Record any real mainnet audit spending only after a separately authorized payment.
+Do not purchase an audit during development. Use local EVM and Robinhood Testnet first. Audit-reserve allocations are configurable per project. Keep testnet and real-income accounting separate. Record any real mainnet audit spending only after a separately authorized payment.
 
 The initial code is not a revenue guarantee. Without launched projects, trading activity, and a finalized commission model, platform revenue is zero. The local prototype uses no factory commission.
 
@@ -33,4 +33,4 @@ These decisions do not block the current local/testnet foundation. They must be 
 
 ## First real integration session
 
-Use a dedicated BNB Testnet wallet, a second public treasury address and a valid pinned metadata CID. Deploy this factory from the app, launch a Tax Token V3 using native tBNB, then trace actual Flap revenue to the vault. Keep explorer transaction hashes as acceptance evidence. Do not infer that a passing local mock test proves the live protocol path.
+Use a dedicated Robinhood Testnet wallet, a second public treasury address and a valid pinned metadata CID. Deploy this factory from the app, launch a Tax Token V3 using native test ETH, then trace actual Flap revenue to the vault. Keep explorer transaction hashes as acceptance evidence. Do not infer that a passing local mock test proves the live protocol path.
