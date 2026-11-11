@@ -1,9 +1,16 @@
-import { hexToBigInt, numberToHex } from 'viem';
+import { hexToBigInt, numberToHex, stringToHex } from 'viem';
 import {NETWORK} from '../shared/config.mjs';
 export type Provider={request(args:{method:string;params?:any[]}):Promise<any>;on?:(event:string,listener:(value:any)=>void)=>void;removeListener?:(event:string,listener:(value:any)=>void)=>void};
 declare global { interface Window { ethereum?:Provider } }
 export function provider(){if(!window.ethereum)throw new Error('Open this app in a browser with an EVM wallet extension, such as MetaMask or Rabby.');return window.ethereum;}
 export async function connectWallet(){await provider().request({method:'eth_requestAccounts'});await switchTestnet();const accounts=await provider().request({method:'eth_accounts'});if(!accounts[0])throw new Error('Choose an account in your wallet to continue.');return accounts[0] as string;}
+export async function signInMessage(address:string,message:string){
+  const wallet=provider();
+  if((await wallet.request({method:'eth_accounts'}))[0]?.toLowerCase()!==address.toLowerCase())throw new Error('Your wallet changed. Sign in again.');
+  const signature=await wallet.request({method:'personal_sign',params:[stringToHex(message),address]});
+  if((await wallet.request({method:'eth_accounts'}))[0]?.toLowerCase()!==address.toLowerCase())throw new Error('Your wallet changed. Sign in again.');
+  return signature as string;
+}
 export async function switchTestnet(){
   const wallet=provider();
   const chainId=numberToHex(NETWORK.id);

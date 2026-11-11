@@ -1,6 +1,6 @@
 # Validation record
 
-Updated: 2026-10-16 (Asia/Shanghai). Current results target Robinhood Chain Testnet. Earlier BNB evidence below is retained as history, not migration proof.
+Updated: 2026-11-12 (Asia/Shanghai). Current results target Robinhood Chain Testnet. Earlier BNB evidence below is retained as history, not migration proof.
 
 ## Completed
 
@@ -9,11 +9,21 @@ Updated: 2026-10-16 (Asia/Shanghai). Current results target Robinhood Chain Test
 | Solidity artifact compilation | Passed: solc 0.8.26, optimized, Shanghai-compatible local deployment artifacts |
 | TypeScript compilation | Passed: `tsc --noEmit` |
 | English application production build | Passed: Vite 8.3.4 |
-| Node validation, API, model-context, wallet guards and local-EVM tests | 23 tests passed across the complete suite |
-| Foundry contract suite | 9 tests passed, including 256 revenue-conservation fuzz cases |
-| Live Robinhood Testnet fork integration | Passed with Cancun EVM execution at block 136509923 |
+| Node validation, API, model-context, wallet guards and local-EVM tests | 30 tests passed across the current complete suite |
+| Foundry contract suite | Historical: 9 passed on 2026-10-16, including 256 revenue-conservation fuzz cases; Solidity implementation unchanged in this iteration |
+| Live Robinhood Testnet fork integration | Historical: passed on 2026-10-16 with Cancun execution at block 136509923 |
 | Local static HTTP route | HTTP 200 at `http://127.0.0.1:4318` |
 | Live testnet read checks | Chain ID 46630; Portal, VaultPortal, Tax Token V3 and Guardian bytecode present; native quote enabled with curve 25 and DEX0 |
+
+## Discovery, signals, sign-in and interface — 2026-11-12
+
+- Added real Flap launch indexing, token lookup and detail views, reported prices and indicative market cap in test ETH, graduation progress, largest holders and receipt-backed trade history. The current live check returned 50 indexed launches; a real token detail included 24 indexed trade events. These are external testnet records, not MemeHelm-created users or revenue.
+- Added wallet-private watchlists, adjustable thresholds, pause/remove actions, private alerts, read state, requested AI explanations and persistent brief history. Background monitoring uses observed changes and never calls AI or signs a transaction automatically.
+- Added real EIP-4361 signature verification, one-use/expiring challenges, expiring HttpOnly sessions, logout, wallet-scoped private routes and browser draft storage. API checks use real cryptographic signatures from deterministic unfunded test accounts and cover two-user isolation, nonce replay, altered messages, wrong signers, expiry and hostile-origin requests.
+- Replaced JSON mutation storage with transactional SQLite and tested rollback, concurrent changes, persistence and preservation of legacy records. Unowned legacy records remain quarantined.
+- Built and rendered all nine apps and all four launch steps. Browser checks now work and cover home/discovery navigation, the actual market detail/holder/trade tabs, window maximize, signed-out Signals and a 390px responsive layout. A browser without an injected EVM wallet correctly displays a sign-in explanation. Real wallet-extension sign-in, dragging/resizing under a full user session and public-testnet financial transactions remain unverified.
+- Rechecked the provided model service using a disposable authenticated private workspace. The actual generation failed; a read-only model-discovery request returned HTTP 403. Local mocked-provider generation, private history and ownership checks pass, but current live AI generation is not certified. The earlier successful provider test below is historical. Test data was removed and credentials were not printed.
+- Public hosting is deferred at the user's request. No contract deployment, audit purchase, autonomous trade or social post was performed. Full implementation scope and source coverage are in [PRODUCT_RELEASE.md](PRODUCT_RELEASE.md).
 
 ## Robinhood migration proof — 2026-10-16
 

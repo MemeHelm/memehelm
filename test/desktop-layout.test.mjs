@@ -6,7 +6,7 @@ function contained(rect,bounds){assert.ok(rect.width>0&&rect.height>0);assert.ok
 
 test('desktop apps remain reachable across desktop, phone, and short viewports',()=>{
   for(const bounds of [{width:1440,height:800},{width:800,height:500},{width:390,height:650},{width:320,height:260}]){
-    for(const page of ['home','launch','overview','treasury','copilot','calculator','guide']){
+    for(const page of ['home','discover','signals','launch','overview','treasury','copilot','calculator','guide']){
       const rect=initialWindow(page,bounds,5);contained(rect,bounds);
       contained(moveWindow(rect,99999,-99999,bounds),bounds);
       contained(moveWindow(rect,-99999,99999,bounds),bounds);

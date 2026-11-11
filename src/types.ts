@@ -1,4 +1,4 @@
-export type Page = 'home' | 'overview' | 'launch' | 'treasury' | 'copilot' | 'calculator' | 'guide';
+export type Page = 'home' | 'discover' | 'signals' | 'overview' | 'launch' | 'treasury' | 'copilot' | 'calculator' | 'guide';
 export type Project = {id:string;name:string;symbol:string;description:string;image?:string;website?:string;x?:string;telegram?:string;tokenAddress:string|null;vaultAddress:string|null;launchHash:string|null;status:'draft'|'imported'|'launched';chainId:number;createdAt:string;published?:boolean;publishedAt?:string;draft?:Partial<LaunchDraft>};
 export type Activity = {id:string;projectId?:string;kind:'brief'|'post'|'plan'|'launch';title:string;content:string;createdAt:string;public?:boolean;transactionHash?:string};
 export type WorkspaceStatus = {network:{id:number;name:string;portal:string;vaultPortal:string;guardian:string;explorer:string;source:string};chain:{ok:boolean;block:string|null;error:string|null};aiConfigured:boolean;factory:string|null;auditReferenceETH:string;mode:string;auditStatus:string};

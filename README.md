@@ -6,6 +6,11 @@ Current release: **local development prototype, Robinhood Testnet only**. This a
 
 ## What is implemented
 
+- Discover: real Flap launch receipts, search and sorting, opt-in community pages, token prices, market-cap calculations in test ETH, graduation progress, largest holders and indexed trades. Charts use actual recorded prices; missing data remains unavailable.
+- Signals: wallet-private watchlists, adjustable price thresholds, holder/graduation alerts, pause/remove controls, read state and requested AI explanations with saved private history. Monitoring runs every minute while the local backend is running; it never calls the model or sends a transaction automatically.
+- EIP-4361 wallet sign-in with one-use challenges, address/chain/origin binding, expiring HttpOnly cookies and logout. Projects, activities, watches, alerts and AI briefs are scoped to the authenticated wallet. Browser drafts and wizard progress are scoped to both wallet and chain.
+- A transactional local SQLite workspace, including safe import of existing JSON records. Legacy records without an owner remain quarantined; they are not assigned to the first wallet that signs in.
+- An upgraded dark-glass interface with citron highlights, sculpted brand artwork, discovery cards, interactive price charts and responsive token detail views. Desktop window interactions and reduced-motion behavior are retained.
 - A desktop-style MemeHelm interface with illustrated app shortcuts, a welcome window, a Start menu, and a taskbar. Tool windows can be switched, moved, resized, minimized, maximized, and closed. On phones, tools fill the available workspace.
 - English project, launch, treasury, and copilot tools; a working split calculator that carries its allocation into the launch form; and a user-facing Quick Guide.
 - A brief, skippable brand entrance, staggered desktop reveal, hover feedback, and interruptible window opening/minimizing/closing transitions. Reduced-motion preferences bypass the entrance and remove animation. Font readiness is bounded so a slow font cannot block the desktop.
@@ -27,7 +32,7 @@ The app has not deployed a factory or token on a public network. The current Rob
 
 ## Start locally
 
-Requirements: Node.js 22.12+ (tested on Node 24), pnpm, and an EVM browser wallet for public-testnet writes.
+Requirements: Node.js 24+, pnpm, and an EVM browser wallet for sign-in and public-testnet writes. SQLite uses Node's built-in runtime module.
 
 ```sh
 pnpm install
@@ -44,7 +49,7 @@ pnpm build
 pnpm start
 ```
 
-Open **http://127.0.0.1:4318**. Keep the service local: there is no production multi-user authentication yet.
+Open **http://127.0.0.1:4318**. Wallet sign-in and ownership isolation are implemented, but the service remains bound to loopback. The user has deferred public hosting until a deployment environment is provided.
 
 ## Optional configuration
 
@@ -52,13 +57,14 @@ Copy `.env.example` to `.env`. Private environment files are ignored. The server
 
 | Variable | Purpose |
 | --- | --- |
+| `APP_ORIGIN` | Sign-in origin; defaults to `http://127.0.0.1:4318`. Public deployments require HTTPS and separate hosting hardening. |
 | `ROBINHOOD_TESTNET_RPC_URL` | Robinhood Testnet JSON-RPC endpoint. The server checks chain ID 46630. |
 | `AI_API_BASE` | A chat-completions compatible base URL, for example your provider's `/v1` endpoint. |
 | `AI_API_KEY` | Server-only model credential. |
 | `AI_MODEL` | Model identifier accepted by that provider. |
 | `ROBINHOOD_SPLIT_FACTORY_ADDRESS` | Optional address after deploying this build's factory on Robinhood Testnet. |
 
-Without a model configuration, AI stays disabled. On a generation request the server shares the selected project's description and observed chain facts with the configured provider. There is no automatic posting or transaction execution. Credentials remain in the ignored local `.env` and are never shipped in browser assets. Public project pages remain local until the application is separately deployed; do not expose this single-user server as a hosted product before adding authentication and per-user ownership.
+Without a model configuration, AI stays disabled. On a generation request the server shares the selected project's description and observed chain facts, or the requested watch's market data and signals, with the configured provider. There is no automatic posting or transaction execution. Writing requests are limited per wallet to 5/minute and 20/hour. Credentials remain in the ignored local `.env` and are never shipped in browser assets. Public project pages remain local until a separate deployment. See [PRODUCT_RELEASE.md](docs/PRODUCT_RELEASE.md) for data coverage, session behavior and remaining production work.
 
 ## First testnet session
 

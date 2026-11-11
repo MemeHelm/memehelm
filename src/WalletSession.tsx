@@ -1,0 +1,17 @@
+import {useEffect,useRef,useState} from 'react';
+import type {ReactNode} from 'react';
+import {api} from './api';
+import {connectWallet,signInMessage} from './wallet';
+export function WalletSession({children}:{children:(wallet:string,connect:()=>Promise<void>,logout:()=>Promise<void>,signing:boolean)=>ReactNode}){
+  const [wallet,setWallet]=useState(''),[error,setError]=useState(''),[signing,setSigning]=useState(false);
+  const current=useRef(''),epoch=useRef(0),locked=useRef(false);
+  function select(address:string){current.current=address;setWallet(address);}
+  async function logout(){epoch.current++;select('');await api('/auth/logout',{}).catch(()=>{});}
+  useEffect(()=>{let active=true;const started=epoch.current;api<{address:string|null}>('/auth/session').then(async session=>{if(!session.address)return;const injected=window.ethereum;if(injected){const accounts=await injected.request({method:'eth_accounts'});if(accounts[0]?.toLowerCase()!==session.address.toLowerCase()){if(active)await logout();return;}}if(active&&epoch.current===started)select(session.address);}).catch(()=>{});
+    const changed=(accounts:string[])=>{epoch.current++;if(current.current&&accounts[0]?.toLowerCase()!==current.current.toLowerCase()){select('');api('/auth/logout',{}).catch(()=>{});setError('Wallet changed. Sign in to open its private workspace.');}};
+    const expired=()=>{epoch.current++;select('');setError('Your session ended. Sign in again to continue.');};window.ethereum?.on?.('accountsChanged',changed);window.addEventListener('memehelm-session-expired',expired);
+    return()=>{active=false;window.ethereum?.removeListener?.('accountsChanged',changed);window.removeEventListener('memehelm-session-expired',expired);};
+  },[]);
+  async function connect(){if(locked.current)return;locked.current=true;setSigning(true);setError('');try{const address=await connectWallet(),started=epoch.current;const challenge=await api<{message:string}>('/auth/challenge',{address});const signature=await signInMessage(address,challenge.message);if(started!==epoch.current)throw new Error('Wallet changed. Please sign in again.');const session=await api<{address:string}>('/auth/verify',{message:challenge.message,signature});if(started!==epoch.current){await logout();throw new Error('Wallet changed. Please sign in again.');}try{const prefix='memehelm:46630:',target=prefix+session.address.toLowerCase()+':draft',guest=localStorage.getItem(prefix+'guest:draft');if(!localStorage.getItem(target)&&guest&&JSON.parse(guest).name){localStorage.setItem(target,guest);localStorage.setItem(prefix+session.address.toLowerCase()+':launch-step',localStorage.getItem(prefix+'guest:launch-step')||'0');localStorage.removeItem(prefix+'guest:draft');localStorage.removeItem(prefix+'guest:launch-step');}}catch{}select(session.address);}catch(reason:any){setError(reason.code===4001?'Sign-in cancelled. You can continue exploring.':reason.shortMessage||reason.message||'Sign-in could not be completed.');}finally{setSigning(false);locked.current=false;}}
+  return <>{children(wallet,connect,logout,signing)}{signing&&<div className="session-progress" role="status"><span className="spinner"/><div><strong>Open your wallet.</strong><span>Approve the sign-in message. No gas or spending.</span></div></div>}{error&&<div className="session-notice" role="alert"><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss sign-in notice">×</button></div>}</>;
+}
