@@ -27,6 +27,14 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
   }
   async function launchRecord(token){await verify();const launch=await factory('getLaunchedToken',[validAddress(token,'Token')]);if(!launch.exists)throw new Error('This token was not issued by the supported pons v2 factory.');return launch;}
   async function nativeRecord(token){const launch=await launchRecord(token);if(!same(launch.pairToken,zeroAddress))throw new Error('This trading view supports ETH-paired pons v2 tokens.');return launch;}
+  const quoteAssets=new Map();
+  async function quoteAsset(launch){
+    if(same(launch.pairToken,zeroAddress))return{address:zeroAddress,symbol:'ETH',decimals:18};
+    const key=launch.pairToken.toLowerCase();if(quoteAssets.has(key))return quoteAssets.get(key);
+    const [symbol,decimals]=await Promise.all(['symbol','decimals'].map(name=>read(launch.pairToken,erc20Abi,name)));
+    if(!Number.isInteger(Number(decimals))||Number(decimals)>36)throw new Error('The quote asset decimals could not be verified.');
+    const asset={address:launch.pairToken,symbol:String(symbol).slice(0,24),decimals:Number(decimals)};quoteAssets.set(key,asset);return asset;
+  }
   async function verifyVault(address,owner){
     const compiled=await loadArtifact('RevenueSplitVault'),code=await client.getCode({address:validAddress(address,'Split vault')});
     if(!same(code,compiled.deployedBytecode))throw new Error('This is not a verified MemeHelm split vault.');
@@ -46,10 +54,10 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
     return{chainId:4663,to:PONS.factory.address,data:encodeFunctionData({abi:factoryAbi,functionName:'launchToken',args:[params,BigInt(draft.configId),zeroAddress]}),value:settings.fee,expiresAt:new Date(now()+90000).toISOString(),economics:expectedEconomics,settings:draft,config};
   }
   async function marketState(token){
-    const launch=await nativeRecord(token),key=poolKey(launch,PONS.hook.address),id=poolId(key);
-    if(launch.phase===0){const[reserves,raised,ready,fee,tax]=await Promise.all(['getReserves','realQuoteReserve','readyToGraduate','feeBps','creatorTaxBps'].map(name=>read(launch.curve,curveAbi,name)));return{launch,pool:id,phase:launch.phase,price:String(Number(reserves[0])/Number(reserves[1])),reserve:formatEther(raised),progress:Math.min(100,Number(raised)*100/Number(launch.graduationThreshold)),graduated:false,buyTaxBps:Number(fee+tax),sellTaxBps:Number(fee+tax),readyToGraduate:ready};}
-    if(launch.phase===2){await verify(['stateView']);const[slot,policy]=await Promise.all([read(PONS.stateView.address,stateAbi,'getSlot0',[id]),factory('getLaunchFeePolicy',[token])]);const sqrt=Number(slot[0])/2**96,price=slot[0]===0n?null:String(1/(sqrt*sqrt));return{launch,pool:id,phase:2,price,reserve:null,progress:100,graduated:true,buyTaxBps:Number(policy.hookFeeBps)+Number(launch.creatorTaxBps),sellTaxBps:Number(policy.hookFeeBps)+Number(launch.creatorTaxBps),readyToGraduate:true};}
-    return{launch,pool:id,phase:launch.phase,price:null,reserve:null,progress:launch.phase===1?100:null,graduated:false,buyTaxBps:null,sellTaxBps:null,readyToGraduate:true};
+    const launch=await launchRecord(token),asset=await quoteAsset(launch),key=poolKey(launch,PONS.hook.address),id=poolId(key),scale=10**(18-asset.decimals),base={launch,pool:id,currency:asset.symbol,pairToken:asset.address,quoteDecimals:asset.decimals};
+    if(launch.phase===0){const[reserves,raised,ready,fee,tax]=await Promise.all(['getReserves','realQuoteReserve','readyToGraduate','feeBps','creatorTaxBps'].map(name=>read(launch.curve,curveAbi,name)));return{...base,phase:launch.phase,price:String(Number(reserves[0])/Number(reserves[1])*scale),reserve:formatUnits(raised,asset.decimals),progress:Math.min(100,Number(raised)*100/Number(launch.graduationThreshold)),graduated:false,buyTaxBps:Number(fee+tax),sellTaxBps:Number(fee+tax),readyToGraduate:ready};}
+    if(launch.phase===2){await verify(['stateView']);const[slot,policy]=await Promise.all([read(PONS.stateView.address,stateAbi,'getSlot0',[id]),factory('getLaunchFeePolicy',[token])]);const sqrt=Number(slot[0])/2**96,ratio=sqrt*sqrt,price=slot[0]===0n?null:String((same(key.currency0,launch.pairToken)?1/ratio:ratio)*scale);return{...base,phase:2,price,reserve:null,progress:100,graduated:true,buyTaxBps:Number(policy.hookFeeBps)+Number(launch.creatorTaxBps),sellTaxBps:Number(policy.hookFeeBps)+Number(launch.creatorTaxBps),readyToGraduate:true};}
+    return{...base,phase:launch.phase,price:null,reserve:null,progress:launch.phase===1?100:null,graduated:false,buyTaxBps:null,sellTaxBps:null,readyToGraduate:true};
   }
   async function quote(owner,input){
     const token=validAddress(input.token,'Token'),side=input.side,slippageBps=Number(input.slippageBps??100);if(!['buy','sell'].includes(side)||!Number.isInteger(slippageBps)||slippageBps<10||slippageBps>500)throw new Error('Choose buy or sell and slippage from 0.1% to 5%.');
@@ -105,6 +113,6 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
     else throw new Error('Choose a valid revenue action.');
     await client.simulateContract({address,abi,functionName,args,account:owner});return{chainId:4663,to:address,data:encodeFunctionData({abi,functionName,args}),value:'0',label:action,recipient:action==='release'?recipient:action==='claim'?launch.creatorFeeRecipient:null,amount:action==='release'?(same(recipient,state.vault.projectTreasury)?state.vault.projectPending:state.vault.auditPending):action==='claim'?state.revenue.claimable:null,expiresAt:new Date(now()+90000).toISOString()};
   }
-  return{verify,options,launchRecord,nativeRecord,marketState,verifyVault,prepareVault,prepareLaunch,quote,tradeStep,snapshot,revenueAction};
+  return{verify,options,launchRecord,nativeRecord,quoteAsset,marketState,verifyVault,prepareVault,prepareLaunch,quote,tradeStep,snapshot,revenueAction};
 }
 export const pons=createPons();
