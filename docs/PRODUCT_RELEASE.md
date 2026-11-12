@@ -1,38 +1,24 @@
-# Discovery, signals and wallet workspaces
+# Independent Robinhood workspace
 
-Updated: 2026-11-12 (Asia/Shanghai). This iteration implements the three agreed priorities locally: discovery/market details, monitoring with requested AI explanations, and wallet-owned workspaces. Public hosting is deferred at the user's request.
+Updated 2026-11-12. This release removes the earlier Flap runtime integration, interfaces, registry checks, launch event decoder, vanity worker and upgrade dependency. The existing English MemeHelm brand, desktop interface, wallet privacy, SQLite workspace, AI tasks and opt-in project pages remain.
 
-## User workflows
+## Available locally
 
-- Discover combines recent direct Portal events with up to 50 historical TokenCreated events indexed by Robinhood Blockscout. Search by name, ticker or address, sort results and open a verified Flap token. Community pages include only explicitly published projects. The list is not a platform-wide count or a recommendation.
-- Token details read `getTokenV8Safe` from the official Robinhood Testnet Portal. Prices, native quote reserve, progress and taxes come from that contract. Holder counts, token supply and largest holders come from the official chain explorer, with unavailable states on failure. Market cap is an indicative reported-price-times-supply calculation in test ETH, never a USD valuation.
-- The trade window covers the latest 50 indexed Portal buys and 50 sells across the network, filtered by token. It excludes other DEX venues and is not a complete trading history or a 24-hour-volume measure. Multiple events in a transaction retain their event order. Charts use these actual prices or timestamped local observations; no synthetic candles or filler history are generated.
-- Sign in with an EOA wallet to add a watch. Change the price threshold, pause it, remove it, check manually or read private notifications. Price alerts compare consecutive successful observations. Holder changes and a transition to graduated also create alerts. Failed reads preserve the previous observation and show an unavailable state.
-- Background checks run once a minute while the local Node service is running, with at most 100 enabled watches per cycle and 20 saved watches per wallet. They do not run after the service stops. Browser notifications, email, Telegram and social posting are not integrated.
-- Click AI brief to request an explanation of one owned watch's observed facts and private alerts. Saved briefs remain wallet-private. Model calls share the same per-wallet writing limits as project Copilot: 5/minute and 20/hour. There is no background AI charge or automated financial action.
+- Activate a MemeHelm factory, prepare its own `createToken` transaction and verify the resulting creator/token/vault receipt. Fixed supply goes entirely to the signing wallet. Optional test ETH goes into the two-recipient vault. Mainnet is blocked.
+- Read token/vault balances and request independent wallet-signed payouts. Contracts are non-upgradeable and have no hidden platform recipient.
+- Discover recent events from bytecode-verified MemeHelm factories. Feed sources are a configured factory and factories of explicitly published, wallet-owned projects. Private project records do not expose factory addresses to discovery. The feed uses recent RPC events and the latest explorer event page per factory; it is not a complete chain index.
+- Look up Robinhood ERC-20 name, symbol, supply and decimals via RPC, plus holder counts/largest holders via Blockscout. Missing holder data stays unavailable. No price, cap, volume, curve, graduation or trade history is inferred without a verified market source.
+- Save private watches, check holder changes, pause/remove watches and read private alerts. Background checks run every minute while the local service runs, at most 100 watches per cycle and 20 saved watches per wallet. Failures preserve previous observations.
+- Request AI briefs, drafts and plans with private history and explicit sharing. The configured live provider currently returns HTTP 403; successful mocked-provider tests do not establish live availability. Calls are limited to 5/minute and 20/hour per wallet, with no automatic paid AI or financial execution.
 
-## Authentication and data
+## Privacy and isolation
 
-The server generates an exact EIP-4361 message bound to origin, wallet, Robinhood Testnet chain ID, nonce and five-minute expiry. A nonce is consumed before signature verification. Session identifiers are random, stored only as hashes in server memory, expire after 24 hours and use HttpOnly/SameSite=Strict cookies. HTTPS origins add Secure. Restarting the service invalidates sessions and requires a fresh sign-in. The local server continues to reject non-loopback hosts and cross-origin JSON writes.
+One-use EIP-4361 challenges bind wallet, origin, chain and five-minute expiry. Session cookies are HttpOnly/SameSite Strict; HTTPS adds Secure. Sessions expire after 24 hours and are invalidated by restart. Private APIs resolve ownership from the session; cross-wallet access returns 404 or an empty owned list.
 
-Every private route resolves its project, watch or activity through the signed-in wallet. A client-supplied owner field is ignored. Launch receipts must belong to that wallet. Publishing a project requires matching ERC-20 information and a confirmed owned launch, or a creating wallet verified against the indexed launch list. Importing a token for private tracking does not grant creator publication rights. Public responses use explicit field whitelists.
+The independent default database is `data/robinhood-independent/workspace.sqlite`. Old databases remain untouched. Factory, draft and wizard state use `memehelm:46630:independent:<wallet>:*` keys, avoiding reuse of old protocol addresses. Guest draft adoption occurs only on explicit sign-in and only if that wallet has no draft. Cached market data and observation history require the current source label.
 
-The SQLite file is `data/robinhood-testnet/workspace.sqlite`. Document changes use database transactions with rollback and WAL. Existing projects/activity JSON files are imported once and left intact. Records without a verified owner remain quarantined. The database and all legacy files are ignored by Git. Private browser drafts, factory addresses and launch progress use `memehelm:46630:<wallet>:*`; guest drafts can move to a newly signed-in wallet only when that wallet has no saved browser draft. No signing key is stored by the application.
-
-## Visual direction
-
-The desktop metaphor, original M mark, brand palette and restrained point motion are retained. The upgrade adds dark glass surfaces, soft shadows, citron highlights, sculpted brand shapes, clearer primary actions, discovery cards, charts and a signal feed. New product text remains English and omits development progress or configuration instructions. Reduced-motion preferences remain supported.
+Public pages contain explicitly approved project fields and updates. A saved launch requires a successful receipt from the signing wallet, a matching MemeHelm factory runtime and its token/vault/creator event. Importing a token is private tracking, not evidence of creator ownership.
 
 ## Remaining scope
 
-- Public hosting, TLS, persistent session infrastructure, production abuse controls, operational backups and production load/reorg recovery need a separately supplied deployment environment and review.
-- A real browser wallet sign-in and wallet-signed public-testnet launch/payout session still require the user's wallet. Local cryptographic signature and ownership tests do not replace that session.
-- Autonomous buybacks, social publishing/escrow, Sentinel transfer rules, Bitcoin Runes, additional launch/vault paths and audit certification remain separate integrations. This release does not advertise them as available modes.
-- This iteration changes no Solidity contract implementation and purchases no audit. Earlier fork proofs remain historical evidence with their original dates.
-
-## Primary references
-
-- [Flap Robinhood integration](https://docs.flap.sh/flap/developers/token-launcher-developers/robinhood-integration-guide.md)
-- [Flap deployed contracts](https://docs.flap.sh/flap/developers/deployed-contract-addresses)
-- [Sign-In with Ethereum](https://eips.ethereum.org/EIPS/eip-4361)
-- [Node SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)
+Public-testnet wallet deployment/launch/payout verification, market liquidity and trading infrastructure, additional issuance modes, social integrations, autonomous spending strategies, external audits, and production hosting remain separate work. No mainnet or public-testnet financial transaction was broadcast during this migration. Hosting remains deferred until the user supplies an environment.

@@ -1,38 +1,32 @@
 # MemeHelm
 
-**Launch it. Steer it.** An English-language creator workspace for **Robinhood Chain + Flap**.
+**Launch it. Steer it.** An independent, English-language token creation and operations workspace on **Robinhood Chain**. MemeHelm is not affiliated with or endorsed by Robinhood.
 
-Current release: **local development prototype, Robinhood Testnet only**. This app is not affiliated with or endorsed by Robinhood or Flap.
+This release runs locally on **Robinhood Testnet, chain 46630**. Mainnet transactions remain blocked. Public hosting is deferred at the user's request.
 
-## What is implemented
+## Independent issuance
 
-- Discover: real Flap launch receipts, search and sorting, opt-in community pages, token prices, market-cap calculations in test ETH, graduation progress, largest holders and indexed trades. Charts use actual recorded prices; missing data remains unavailable.
-- Signals: wallet-private watchlists, adjustable price thresholds, holder/graduation alerts, pause/remove controls, read state and requested AI explanations with saved private history. Monitoring runs every minute while the local backend is running; it never calls the model or sends a transaction automatically.
-- EIP-4361 wallet sign-in with one-use challenges, address/chain/origin binding, expiring HttpOnly cookies and logout. Projects, activities, watches, alerts and AI briefs are scoped to the authenticated wallet. Browser drafts and wizard progress are scoped to both wallet and chain.
-- A transactional local SQLite workspace, including safe import of existing JSON records. Legacy records without an owner remain quarantined; they are not assigned to the first wallet that signs in.
-- An upgraded dark-glass interface with citron highlights, sculpted brand artwork, discovery cards, interactive price charts and responsive token detail views. Desktop window interactions and reduced-motion behavior are retained.
-- A desktop-style MemeHelm interface with illustrated app shortcuts, a welcome window, a Start menu, and a taskbar. Tool windows can be switched, moved, resized, minimized, maximized, and closed. On phones, tools fill the available workspace.
-- English project, launch, treasury, and copilot tools; a working split calculator that carries its allocation into the launch form; and a user-facing Quick Guide.
-- A brief, skippable brand entrance, staggered desktop reveal, hover feedback, and interruptible window opening/minimizing/closing transitions. Reduced-motion preferences bypass the entrance and remove animation. Font readiness is bounded so a slow font cannot block the desktop.
-- An original dark brand wallpaper with static sculpted curves and small glowing particles that wander independently. Background layers never intercept clicks.
-- A four-step launch wizard with per-step validation, a live token preview, community links, editable revenue destinations, a full review, and wallet-confirmed testnet launch. Drafts can be saved and reopened without creating duplicates. Local image selection previews PNG/JPEG/WebP; image and JSON metadata still need uploaded IPFS links.
-- AI drafts are saved privately per project. Users can return to previous drafts, copy them, and explicitly publish or hide an update after publishing the project's page. Requests are capped and parallel generations for the same project are rejected.
-- Optional project pages at `/project/:id`, with an onchain token check before publication, community links, live vault balances, a launch receipt and approved updates. Unpublishing hides the page; private drafts and launch settings are excluded from the public API.
-- User-facing pages omit developer configuration and internal progress information. Engineering setup remains in this README.
-- Browser wallet connection and explicit switching to Robinhood Testnet (chain 46630).
-- A wallet-signed testnet factory deployment flow.
-- A Flap `newTokenV6WithVault` launch builder for native-ETH Tax Token V3, including CREATE2 `7777` salt preparation, exact parameter encoding, and wallet gas simulation before signing.
-- A beacon-backed revenue-split vault inheriting the official `VaultBaseV2`, with a factory inheriting `VaultFactoryBaseV2`.
-- Project and audit-reserve recipients are fixed when each vault is created; payouts use independent pull payments. Any caller can trigger a payment, but its destination cannot be changed.
-- The beacon is owned by the official Flap Guardian. The deployer does **not** retain an upgrade path. Guardian upgrades can alter the implementation and its behavior; displayed shares are not an absolute immutability guarantee.
-- Local project drafts/imports, launch receipt verification, native treasury reads and a model-backed content/brief/plan generator.
-- Explicit missing-data states: no made-up prices, holder counts, trading volume, AI answers, or audit badges.
+MemeHelm uses its own `MemeHelmLaunchFactory`, fixed-supply `MemeHelmToken` and non-upgradeable `RevenueSplitVault`. No third-party launchpad, registry, Guardian or protocol fee is required. The previous Flap integration has been removed.
 
-The app has not deployed a factory or token on a public network. The current Robinhood migration has passed a read-only fork of the live Robinhood Testnet contracts, which successfully simulated token creation, custom-vault registration, actual tax dispatch and both recipient payouts. A real wallet-signed public-testnet session is the next integration milestone.
+- A creator signs a transaction to deploy the factory, unless a matching factory is already configured. Its deployed runtime bytecode must match the compiled artifact.
+- A launch creates an ERC-20 with 18 decimals and a chosen fixed supply, delivered entirely to the signing creator. There is no additional mint, token owner, transfer tax, blacklist or upgrade function.
+- Each launch creates a separate native-ETH splitter with two fixed recipient wallets and a fixed reserve percentage. Anyone can trigger a payment, but cannot redirect it.
+- Optional initial funding is an **ETH deposit to the split vault**, not a token purchase. The testnet cap is 1 ETH. There is no separate launch commission; network gas still applies.
+- **Launching does not create a trading pool, bonding curve, market price or liquidity. There are no automatic trading fees, buybacks, holder rewards or market-making strategies.** Those require separate implementations and validation.
+- Token and metadata information use manually supplied IPFS links. Local image selection previews a file; it does not upload it.
 
-## Start locally
+## Workspace
 
-Requirements: Node.js 24+, pnpm, and an EVM browser wallet for sign-in and public-testnet writes. SQLite uses Node's built-in runtime module.
+- A branded desktop with movable/resizable windows, Start menu, taskbar, restrained entrance animation, wandering light points and reduced-motion support.
+- Four-step launch flow, private drafts, split calculator, treasury balances, independent payouts, project imports and opt-in community pages.
+- Discover indexes confirmed events from verified MemeHelm factories. Generic Robinhood ERC-20 lookup reads supply/name/symbol/decimals from RPC and holder data from Blockscout. No unsupported price, volume, graduation or trading history is shown.
+- Signals checks observed holder counts every minute while the local backend runs. Missing data does not create an alert. Private watches can be paused or removed, and alerts marked read.
+- Requested AI daily briefs, social drafts, community plans and signal explanations, with private saved history and explicit sharing. No automatic social posting or financial action. The current real provider has returned HTTP 403; provider access must be restored for live generation. Mocked-provider integration tests are separate evidence.
+- EIP-4361 wallet sessions, one-use challenges, HttpOnly cookies, wallet-owned APIs and a transactional local SQLite store. Private drafts, model credentials and runtime data are excluded from Git.
+
+## Local setup
+
+Use Node.js 24+, pnpm and an EVM browser wallet. No seed phrase or private signing key is required by the backend.
 
 ```sh
 pnpm install
@@ -40,98 +34,27 @@ pnpm contracts:build
 pnpm dev
 ```
 
-Open **http://127.0.0.1:4317**. The API listens only on `127.0.0.1:4318`.
+Open `http://127.0.0.1:4317`; the API listens on `127.0.0.1:4318`. For the built app, run `pnpm build` and `pnpm start`, then open port 4318.
 
-For a local production build:
-
-```sh
-pnpm build
-pnpm start
-```
-
-Open **http://127.0.0.1:4318**. Wallet sign-in and ownership isolation are implemented, but the service remains bound to loopback. The user has deferred public hosting until a deployment environment is provided.
-
-## Optional configuration
-
-Copy `.env.example` to `.env`. Private environment files are ignored. The server requires **no wallet seed phrase or private key**.
+Copy `.env.example` to the ignored `.env` when configuration is needed:
 
 | Variable | Purpose |
 | --- | --- |
-| `APP_ORIGIN` | Sign-in origin; defaults to `http://127.0.0.1:4318`. Public deployments require HTTPS and separate hosting hardening. |
-| `ROBINHOOD_TESTNET_RPC_URL` | Robinhood Testnet JSON-RPC endpoint. The server checks chain ID 46630. |
-| `AI_API_BASE` | A chat-completions compatible base URL, for example your provider's `/v1` endpoint. |
-| `AI_API_KEY` | Server-only model credential. |
-| `AI_MODEL` | Model identifier accepted by that provider. |
-| `ROBINHOOD_SPLIT_FACTORY_ADDRESS` | Optional address after deploying this build's factory on Robinhood Testnet. |
+| `APP_ORIGIN` | Wallet sign-in origin; defaults to local port 4318 |
+| `ROBINHOOD_TESTNET_RPC_URL` | RPC checked for chain 46630 |
+| `MEMEHELM_LAUNCH_FACTORY_ADDRESS` | Optional deployed factory matching this exact build |
+| `AI_API_BASE`, `AI_API_KEY`, `AI_MODEL` | Server-only model provider configuration |
+| `DATA_DIRECTORY` | Optional workspace path; default `data/robinhood-independent` |
 
-Without a model configuration, AI stays disabled. On a generation request the server shares the selected project's description and observed chain facts, or the requested watch's market data and signals, with the configured provider. There is no automatic posting or transaction execution. Writing requests are limited per wallet to 5/minute and 20/hour. Credentials remain in the ignored local `.env` and are never shipped in browser assets. Public project pages remain local until a separate deployment. See [PRODUCT_RELEASE.md](docs/PRODUCT_RELEASE.md) for data coverage, session behavior and remaining production work.
+Previous factory environment variables and browser factory/draft keys are not reused. Historical workspace files remain untouched. This prevents old protocol data from being presented as independent launches.
 
-## First testnet session
-
-1. Open the app in a browser with an injected EVM wallet. Obtain **test ETH** from the [Robinhood Chain testnet faucet](https://faucet.testnet.chain.robinhood.com).
-2. In **Launchpad**, connect your wallet and enable revenue splits. Review the factory activation transaction in your wallet. The wallet flow selects Robinhood Testnet and uses test gas.
-3. In **Launchpad**, enter a token name, symbol and description. Download the metadata template, replace its image placeholder and pin valid image/metadata content on IPFS. Enter the real metadata CID.
-4. Choose separate project and audit-reserve wallets. Review the reserve share and tax settings. The UI's 10% reserve and 3% buy/sell tax are **editable draft defaults**, not an agreed business fee model.
-5. Prepare the launch. The server checks the network, the factory's beacon owner and the implementation bytecode against the local build, then finds an unused vanity address.
-6. Review the **exact** recipients, split, taxes and optional initial buy, then request the wallet signature. `eth_estimateGas` runs first; an incompatible or reverting launch stops before submission.
-7. After confirmation, the app verifies the Flap event and saves the project. In **Treasury**, inspect claimable balances and request a wallet-signed release to each fixed recipient.
-
-Actual public-testnet launch compatibility must be verified against the deployed contracts. Flap's published Robinhood testnet and mainnet versions differ; documentation alone is not proof of a completed integration.
-
-## Revenue and audit budget
-
-- The vault splits **only the native ETH it actually receives**. It does not receive every trading fee or all trade volume. Flap's protocol processing happens upstream.
-- This prototype charges **zero separate factory commission**. Reserve share, platform pricing and platform recipient addresses have not been finalized. No hidden platform address is embedded.
-- The audit reserve is an accounting destination, not a certification. It does not automatically pay anyone, and a deposit does not grant a low-risk badge.
-- Flap's current guide quotes **0.16 ETH per factory** for its partner audit/low-risk-badge path. Recheck pricing and scope when ready. Changes or repeat reviews may have separate terms.
-- **test ETH cannot pay for a real audit**. A real audit reserve needs real mainnet income after a separately reviewed mainnet release.
-- Mainnet writes are deliberately blocked in both the wallet adapter and the factory constructor. Moving to mainnet requires a new reviewed release and deployment.
-
-## Verification
+## Verification and remaining work
 
 ```sh
 pnpm check
-```
-
-This compiles artifacts, runs Node validation/model-context tests plus an in-memory EVM contract suite, and builds the English app. Ganache uses its JavaScript fallback on Node 24; that affects test performance, not the deployed contract.
-
-Foundry tests follow Flap's guide:
-
-```sh
-forge test --root contracts -vv
-```
-
-The project helper excludes the optional network fork from ordinary tests:
-
-```sh
 pnpm contracts:test
-pnpm contracts:test:fork
 ```
 
-The fork command uses Cancun-compatible EVM execution because the deployed Flap contracts require those instructions. It reads the public testnet and performs all writes locally; it never broadcasts a transaction.
+Node tests include local-EVM issuance, API preparation, signed launch receipt verification, publication, vault reads and payouts, plus authorization, recipient isolation and reentrancy checks. Foundry includes supply/deposit checks, a mainnet deployment rejection and 256 accounting fuzz cases. These are local tests, not a public deployment or audit.
 
-Robinhood-specific network/contract references and migration evidence are in [ROBINHOOD_MIGRATION.md](docs/ROBINHOOD_MIGRATION.md). Old BNB-chain test evidence remains historical and does not certify this migration.
-
-For this workspace, a checksum-verified Foundry v1.8.5 executable is available under ignored `vendor/foundry-v1.8.5/`. It is a local tool, not a required product dependency.
-
-See [PROJECT_PLAN.md](docs/PROJECT_PLAN.md), [PROTOCOL_NOTES.md](docs/PROTOCOL_NOTES.md), [VALIDATION.md](docs/VALIDATION.md), and [audit_gpt_6.md](audit_gpt_6.md) for milestones, protocol constraints, test evidence, and the internal spec review. The internal review is **not** a third-party audit.
-
-## Code layout
-
-```text
-src/                    English React UI and wallet adapter
-server/                 Local API, chain reads, vanity worker, model integration
-shared/                 Testnet addresses and validated launch parameter builder
-contracts/src/          Revenue splitter and canonical Flap interfaces
-contracts/lib/          OpenZeppelin and forge-std reference dependencies
-contracts/test/         Foundry integration/property tests
-test/                   Node boundary tests and in-memory EVM integration tests
-scripts/                Compile and local development entry points
-docs/                   Product plan, protocol notes and verification record
-```
-
-## What comes after this prototype
-
-Finish a public-testnet launch → validate actual Flap payouts → choose a transparent commission model → harden the hosted service → prepare a mainnet release → accumulate real project/platform revenue → purchase a partner audit when affordable.
-
-Full autonomous buybacks, X publishing, social identity claims, Bitcoin Runes, permanent transfer restrictions, and official Flap UI hosting are outside this first milestone.
+A real wallet-signed public-testnet deployment/launch/payout is still outstanding. There is no audited release, live trading engine or publicly hosted backend. Audit fees have not been purchased; an internal historical review does not cover these new contracts. See [validation](docs/VALIDATION.md), [protocol notes](docs/PROTOCOL_NOTES.md) and [product scope](docs/PRODUCT_RELEASE.md).

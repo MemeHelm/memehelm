@@ -12,12 +12,12 @@ test('watch settings, alerts and requested AI briefs stay within the signed-in w
     Object.assign(process.env,{DATA_DIRECTORY:dir,AI_API_BASE:'https://test-model.example/v1',AI_API_KEY:'test-only-value',AI_MODEL:'test'});
     globalThis.fetch=async(url,options)=>{if(String(url).startsWith('https://test-model.example/')){modelCalls++;assert.match(JSON.parse(options.body).messages[1].content,/Observed chain data/);return Response.json({choices:[{message:{content:'Verified changes in a private signal brief.'}}]});}return originalFetch(url,options);};
     ({server}=await import(`../server/index.mjs?signals-test=${Date.now()}`));server.listen(0,'127.0.0.1');await once(server,'listening');const endpoint=`http://127.0.0.1:${server.address().port}`,alice=await signedClient(endpoint,testWallet(4),originalFetch),bob=await signedClient(endpoint,testWallet(5),originalFetch),store=createWorkspaceStore(dir);
-    const data={address,name:'Observed',symbol:'OBS',price:'1',holdersCount:2,graduated:false,checkedAt:new Date().toISOString()};await store.change('market',records=>records.push({address,fetchedAt:Date.now(),data}));
+    const data={address,name:'Observed',symbol:'OBS',price:'1',holdersCount:2,graduated:null,source:'Robinhood RPC + Blockscout',checkedAt:new Date().toISOString()};await store.change('market',records=>records.push({address,fetchedAt:Date.now(),data}));
     assert.equal((await originalFetch(endpoint+'/api/watches')).status,401);
     const watch=await (await alice.post('/watches',{address,priceThreshold:10})).json();assert.ok(watch.id);assert.equal((await alice.get('/watches')).status,200);assert.deepEqual(await (await bob.get('/watches')).json(),[]);
     assert.equal((await bob.post('/watches/remove',{id:watch.id})).status,404);assert.equal((await alice.post('/watches',{address,priceThreshold:0})).status,400);
     await store.change('market',records=>{Object.assign(records[0].data,{price:'2',holdersCount:3,graduated:true});});
-    assert.equal((await alice.post('/watches/check',{})).status,200);const alerts=await (await alice.get('/alerts')).json();assert.equal(alerts.length,3);assert.deepEqual(await (await bob.get('/alerts')).json(),[]);
+    assert.equal((await alice.post('/watches/check',{})).status,200);const alerts=await (await alice.get('/alerts')).json();assert.equal(alerts.length,2);assert.deepEqual(await (await bob.get('/alerts')).json(),[]);
     await bob.post('/alerts/read',{id:alerts[0].id});assert.equal((await (await alice.get('/alerts')).json()).filter(item=>item.read).length,0);
     await alice.post('/alerts/read',{});assert.ok((await (await alice.get('/alerts')).json()).every(item=>item.read));
     assert.equal((await bob.post('/watches/brief',{id:watch.id})).status,400);assert.equal(modelCalls,0);

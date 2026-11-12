@@ -6,8 +6,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export function compileContracts(extraSources = {}) {
   const sources = {
     'src/RevenueSplitVault.sol': { content: readFileSync(resolve(root, 'contracts/src/RevenueSplitVault.sol'), 'utf8') },
-    'src/flap/IVaultPortal.sol': { content: readFileSync(resolve(root, 'contracts/src/flap/IVaultPortal.sol'), 'utf8') },
-    'src/flap/IPortal.sol': { content: readFileSync(resolve(root, 'contracts/src/flap/IPortal.sol'), 'utf8') },
+    'src/MemeHelmLaunchFactory.sol': { content: readFileSync(resolve(root, 'contracts/src/MemeHelmLaunchFactory.sol'), 'utf8') },
     ...extraSources,
   };
   const output = JSON.parse(solc.compile(JSON.stringify({
@@ -31,7 +30,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const contracts = compileContracts();
   mkdirSync(resolve(root, 'artifacts'), { recursive: true });
   for (const [file, content] of Object.entries(contracts)) for (const [name, contract] of Object.entries(content)) {
-    if (!['RevenueSplitFactory', 'RevenueSplitVault', 'IVaultPortal', 'IPortal'].includes(name)) continue;
+    if (!['MemeHelmLaunchFactory', 'MemeHelmToken', 'RevenueSplitVault'].includes(name)) continue;
     const artifact = { contractName: name, sourceName: file, compiler: solc.version(), abi: contract.abi, bytecode: `0x${contract.evm.bytecode.object}`, deployedBytecode: `0x${contract.evm.deployedBytecode.object}` };
     writeFileSync(resolve(root, `artifacts/${name}.json`), JSON.stringify(artifact, null, 2));
     console.log(`Compiled ${name}: ${contract.evm.bytecode.object.length / 2} bytes`);

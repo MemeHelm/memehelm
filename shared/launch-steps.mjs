@@ -15,10 +15,8 @@ export function launchStepErrors(draft,step){
     if(!Number.isInteger(draft.auditBps)||draft.auditBps<0||draft.auditBps>10000)errors.auditBps='Choose a reserve share between 0% and 100%.';
   }
   if(step===2){
-    for(const field of ['buyTaxRate','sellTaxRate'])if(!Number.isInteger(draft[field])||draft[field]<1||draft[field]>1000)errors[field]='Choose a tax above 0% and at most 10%.';
-    if(!Number.isInteger(draft.taxDays)||draft.taxDays<365||draft.taxDays>36500)errors.taxDays='Choose 365–36,500 days.';
-    if(!Number.isInteger(draft.antiFarmerDays)||draft.antiFarmerDays<1||draft.antiFarmerDays>365)errors.antiFarmerDays='Choose 1–365 days.';
-    try{if(!/^\d+(\.\d{1,18})?$/.test(draft.initialBuy)||parseEther(draft.initialBuy)>parseEther('1'))throw new Error();}catch{errors.initialBuy='Enter 0–1 test ETH, with up to 18 decimal places.';}
+    if(!/^[1-9]\d{0,15}$/.test(String(draft.totalSupply))||BigInt(draft.totalSupply)>1000000000000000n)errors.totalSupply='Choose 1–1,000,000,000,000,000 whole tokens.';
+    try{if(!/^\d+(\.\d{1,18})?$/.test(draft.initialFunding)||parseEther(draft.initialFunding)>parseEther('1'))throw new Error();}catch{errors.initialFunding='Enter 0–1 test ETH, with up to 18 decimal places.';}
   }
   return errors;
 }

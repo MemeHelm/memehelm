@@ -1,141 +1,20 @@
-# Validation record
+# Independent release validation
 
-Updated: 2026-11-12 (Asia/Shanghai). Current results target Robinhood Chain Testnet. Earlier BNB evidence below is retained as history, not migration proof.
+Date: 2026-11-12. Applies to the independent MemeHelm contracts and local Robinhood workspace. Historical October protocol forks do not validate these new contracts.
 
-## Completed
-
-| Check | Result |
+| Check | Evidence |
 | --- | --- |
-| Solidity artifact compilation | Passed: solc 0.8.26, optimized, Shanghai-compatible local deployment artifacts |
-| TypeScript compilation | Passed: `tsc --noEmit` |
-| English application production build | Passed: Vite 8.3.4 |
-| Node validation, API, model-context, wallet guards and local-EVM tests | 30 tests passed across the current complete suite |
-| Foundry contract suite | Historical: 9 passed on 2026-10-16, including 256 revenue-conservation fuzz cases; Solidity implementation unchanged in this iteration |
-| Live Robinhood Testnet fork integration | Historical: passed on 2026-10-16 with Cancun execution at block 136509923 |
-| Local static HTTP route | HTTP 200 at `http://127.0.0.1:4318` |
-| Live testnet read checks | Chain ID 46630; Portal, VaultPortal, Tax Token V3 and Guardian bytecode present; native quote enabled with curve 25 and DEX0 |
+| Solidity compilation | solc 0.8.26, Shanghai, optimizer 200; independent factory, token and vault artifacts generated |
+| Node suite | 31 tests passed, including nine local-EVM/API subtests |
+| Local EVM | Fixed-supply issuance, creator-bound prediction, exact factory registration, initial vault deposit, recipient validation, 0/100 percent splits, forced ETH accounting, isolated failures and reentrancy rejection |
+| API to local EVM | Signed wallet session → prepare → sign/send locally → verify creator/token/vault receipt → save → publish → snapshot → payout; cross-wallet and mismatched vault/factory rejected |
+| Wallet boundaries | Chain 46630 only; chain/account rechecked after gas estimation; no backend signing key |
+| Foundry | Three tests passed, including 256 accounting fuzz cases and mainnet deployment rejection |
+| Data integrity | Only bytecode-verified factory discovery; deduplication; generic ERC-20 reads; stale-cache isolation; missing prices/trades/holder data remain unavailable |
+| Privacy | One-use origin/wallet/chain challenges, private owned APIs, separate database/browser namespace, whitelisted public fields and explicit AI sharing |
+| App build and render | TypeScript and Vite passed; nine app pages and all four launch steps rendered without old protocol labels or developer setup copy |
+| Browser and live reads | Updated launch UI and empty independent discovery feed checked in the in-app browser; live RPC confirmed chain 46630 at block 152114532; status has no old protocol addresses and legacy artifact endpoint rejects requests |
 
-## Discovery, signals, sign-in and interface — 2026-11-12
+Live provider access returned HTTP 403 during the prior same-day check. No live generation recovery is claimed by this migration. Tests use a controlled provider fixture for that boundary.
 
-- Added real Flap launch indexing, token lookup and detail views, reported prices and indicative market cap in test ETH, graduation progress, largest holders and receipt-backed trade history. The current live check returned 50 indexed launches; a real token detail included 24 indexed trade events. These are external testnet records, not MemeHelm-created users or revenue.
-- Added wallet-private watchlists, adjustable thresholds, pause/remove actions, private alerts, read state, requested AI explanations and persistent brief history. Background monitoring uses observed changes and never calls AI or signs a transaction automatically.
-- Added real EIP-4361 signature verification, one-use/expiring challenges, expiring HttpOnly sessions, logout, wallet-scoped private routes and browser draft storage. API checks use real cryptographic signatures from deterministic unfunded test accounts and cover two-user isolation, nonce replay, altered messages, wrong signers, expiry and hostile-origin requests.
-- Replaced JSON mutation storage with transactional SQLite and tested rollback, concurrent changes, persistence and preservation of legacy records. Unowned legacy records remain quarantined.
-- Built and rendered all nine apps and all four launch steps. Browser checks now work and cover home/discovery navigation, the actual market detail/holder/trade tabs, window maximize, signed-out Signals and a 390px responsive layout. A browser without an injected EVM wallet correctly displays a sign-in explanation. Real wallet-extension sign-in, dragging/resizing under a full user session and public-testnet financial transactions remain unverified.
-- Rechecked the provided model service using a disposable authenticated private workspace. The actual generation failed; a read-only model-discovery request returned HTTP 403. Local mocked-provider generation, private history and ownership checks pass, but current live AI generation is not certified. The earlier successful provider test below is historical. Test data was removed and credentials were not printed.
-- Public hosting is deferred at the user's request. No contract deployment, audit purchase, autonomous trade or social post was performed. Full implementation scope and source coverage are in [PRODUCT_RELEASE.md](PRODUCT_RELEASE.md).
-
-## Robinhood migration proof — 2026-10-16
-
-The migrated `contracts/test/FlapTestnetFork.t.sol` passed against the actual Robinhood Testnet deployment at block **136509923**. It deployed the new factory only inside a local fork, launched a Tax Token V3 through the live Portal/VaultPortal code, verified the token and vault, dispatched protocol tax proceeds and released both fixed recipients' shares. No public transaction was broadcast and no funds were spent.
-
-The 23-test application suite covers wrong-chain RPC and prepared-transaction rejection, disabled or changed native-quote configuration, private AI history/public-page boundaries, and exclusion of old BNB projects from both private and public Robinhood routes. The 9-test Foundry suite includes constructor rejection on BNB Testnet and Robinhood mainnet, alongside 256 accounting fuzz cases. Production compilation and seven app/four wizard-step render checks passed.
-
-Browser storage keys and the default server data directory are scoped to chain 46630. Old BNB records and keys remain untouched and are not reused. Direct ERC-20 reads replace the assumption that Multicall3 exists on the new network. Provider credentials remain server-only and are checked against source and built assets before upload.
-
-A real wallet-signed public-testnet launch and payout session is still pending. Pointer, animation, mobile and screenshot QA remain unverified because preview tab selection timed out. See [ROBINHOOD_MIGRATION.md](ROBINHOOD_MIGRATION.md) for the official references and full scope.
-
-## Historical BNB public-chain fork proof — 2026-10-15
-
-The earlier version of `contracts/test/FlapTestnetFork.t.sol` simulated against the actual deployed BNB Testnet Portal and VaultPortal contracts. That passing expanded test used testnet block **136956386**.
-
-The test deploys our factory locally into the fork; finds an unused `7777` token salt; calls the live protocol's `newTokenV6WithVault`; verifies the new token and vault; dispatches actual protocol tax proceeds; verifies both shares; and releases revenue to the two fixed recipient wallets.
-
-The launch itself is capped at 10,000,000 simulated gas and tax dispatch at 1,000,000. The test's overall gas figure includes local vanity-address search and should not be interpreted as a launch transaction gas estimate. The application performs vanity search off-chain in a worker.
-
-Two integration corrections were evidence-driven:
-
-1. Deployed Flap code requires Cancun-capable fork execution. Shanghai-only fork execution fails on a not-yet-activated instruction.
-2. The old `TWO_THIRDS` graduation threshold is rejected by the tested deployment. The launch builder now uses `FOUR_FIFTHS` (80%), matching the official reference fixture and the passing fork.
-
-These are local simulations on public-chain state. There is **no public transaction hash**, no publicly deployed factory/token, and no money has been spent.
-
-## Local contract coverage
-
-- Native receive gas budget.
-- Cumulative share accounting, rounding and later deposits.
-- Forced native transfers included without double credit.
-- No repeated claims after payment.
-- Independent payout when another recipient rejects native ETH.
-- Reentrancy defense.
-- VaultPortal-only factory creation.
-- Native-only quote guard and invalid recipient/share rejection.
-- Initializer locking/reinitialization rejection.
-- Guardian-only beacon upgrade authority and preserved state after upgrade.
-- UI schema and factory ABI consistency.
-
-## API and AI boundaries
-
-- Draft persistence is tested in an isolated temporary workspace.
-- Cross-origin write attempts are rejected.
-- Invalid address inputs are rejected.
-- Missing token or model configuration produces explicit errors.
-- The model receives bounded project/chain context, with no signing/execution tools.
-- Model transport was tested with a mocked provider and then a real compatible provider on 2026-10-16. The live draft was verified in a disposable private workspace. The credential remains server-only; no production usage or billing guarantee is implied.
-
-## Verification limits
-
-### Guided launch, live AI and project pages — 2026-10-16, before network migration
-
-- Implemented four actual launch steps with validation, token/image preview, metadata download, community links, saved-draft restoration, review and wallet signing. Image upload remains a local preview plus an uploaded IPFS link, as requested; no storage-provider credential is required.
-- Configured the provided compatible model service only in the ignored server environment. Model discovery succeeded; a small generation through the complete API produced a real English draft, persisted it privately and confirmed that the draft was not publicly accessible. The disposable check project was removed. A first direct-runtime generation timed out; using the existing system proxy in the local server configuration resolved it. No credential values are included in this record or the repository.
-- Added persistent per-project draft history, request limits, explicit update sharing and unpublishing. Public responses whitelist project and update fields. Project publication requires an existing token contract with matching onchain symbol and ERC-20 read methods; private drafts and launch configuration are excluded.
-- Added public project-page routes, live vault reads, community links, launch receipt links and creator-approved updates. The preview still runs locally; this is not an internet deployment or production multi-user authorization system.
-- Wallet connection requests BNB Testnet. Transactions recheck the account and network immediately before sending. Real wallet-signed public-testnet creation and payouts remain pending; no transaction was broadcast by this development session.
-- Browser selection still timed out on the existing preview tab (`Emulation.setFocusEmulationEnabled`), so pointer, visual and mobile browser QA remain unverified. Automated code, API/privacy, wallet-guard and route-render checks do not replace those checks.
-- Production build and the 22-test suite passed. Route rendering covers the seven desktop apps and all four launch steps. Client-bundle and Git preflight checks exclude the local credential and environment file.
-
-### Brand wallpaper and wandering particles — 2026-10-16
-
-- Replaced the dot pattern, pixel clouds, stepped hills, and circular logo backdrop with an original SVG wallpaper: dark sculpted ribbons, fine lime edges, and a smaller freestanding brand lockup.
-- Uses seven small round glowing particles that wander independently at different speeds, reduced to four on mobile. Ribbons and their edges stay static; removed moving stroke segments and ribbon drift following the user's correction. Uses CSS/SVG without a rendering loop, external media, or extra dependencies. Decorative layers ignore pointer events and are hidden from assistive technology.
-- Simplified the composition for smaller screens. Reduced-motion preferences keep the wallpaper static; entrance pauses its background animations.
-- TypeScript/Vite build and all seven route-rendering checks passed. Local preview and both updated assets returned HTTP 200. Browser visual and animation QA remain unavailable because of the browser connection failure recorded below.
-
-### Entrance and interaction motion — 2026-10-16
-
-- Added an entrance with the MemeHelm mark, accent animation, and an indeterminate line. It does not display artificial percentages or pretend to check wallet/network services.
-- Entrance waits briefly for the font with a bounded fallback, can be skipped by button or Escape, and is bypassed for reduced-motion preferences.
-- Desktop chrome and shortcuts enter in a short sequence. Added hover feedback, window opening/restoring/minimizing/closing transitions, and subtle background motion.
-- Outgoing window transitions are interruptible: focusing the window clears its pending hide/removal timer. Dragging disables window animation, and timers are cleared on unmount.
-- Production build and seven-route server-render checks passed. No contract, wallet signing, or revenue logic changed. Browser animation timing, pointer interaction, and screenshot QA remain unverified because of the previously recorded browser connection failure.
-
-### MemeHelm brand palette — 2026-10-16
-
-- Preserved the desktop layout and window interactions while restoring the near-black, cold-white, and neon yellow-green brand palette.
-- Recolored all product tools, window chrome, taskbar, original SVG icons, wallpaper elements, brand mark, favicon, and browser theme metadata.
-- Centralized the brand tokens in `src/brand-theme.css`. The kumioOS reference now informs layout and interactions only.
-- No contracts, wallet actions, or revenue logic changed. Build and seven-route rendering checks cover this presentation change; browser visual QA retains the limitation recorded below.
-
-### Desktop interface revision — 2026-10-16
-
-- Replaced the long dark landing page and sidebar layout with a cream/mint/apricot desktop, original illustrated app icons, window titlebars, task switching, and a Start menu. The user's kumioOS reference informed the interaction pattern; no reference runtime or branding was reused.
-- Adapted all existing product tools to light window interiors. Kept all English copy and the existing wallet/testnet boundaries.
-- Preserved the interactive split calculator and connected it to the launch draft. Added a user-facing guide without exposing developer setup.
-- TypeScript and Vite build passed. The full Node suite passed 18 tests, including bounds checks for window movement and resizing on desktop, mobile, and short viewports.
-- Server-rendered routes cover welcome, projects, launch, treasury, copilot, calculator, and guide. These checks do not validate browser pointer interaction or visual layout.
-- The public reference HTML/CSS was accessible for read-only inspection. Browser page loading and local tab selection still timed out, so screenshot, pointer interaction, and visual QA remain unverified.
-
-### MemeHelm interface revision — 2026-10-15
-
-- Rebuilt the product homepage and workspace around the supplied MemeHelm visual references.
-- Added interactive Launchpad/Copilot/Vault examples and a split calculator that carries its allocation into the launch form.
-- Removed developer settings, environment instructions, internal completion states, audit fundraising copy, and factory deployment tutorials from user-facing pages.
-- Retained meaningful transaction information: BNB Testnet, tBNB, fixed recipients, independent audit risk, and vault upgrade authority.
-- TypeScript and Vite production build passed. All 16 existing Node/API/contract checks passed.
-- Server-side rendering checks passed for home, overview, launch, treasury, and copilot; no internal setup copy appeared in their output. HTTP delivery returned 200 with the new title and assets.
-- In-app-browser selection and a fresh preview tab both timed out. Visual layout and browser interaction checks remain unverified; rendered HTML checks do not replace those checks.
-
-- The app's in-app-browser preview could not be inspected: navigation/focus commands timed out. Static HTML HTTP delivery and the build passed, but desktop/mobile visual QA and browser interaction QA remain outstanding.
-- No public wallet-signed testnet transaction has been submitted. The final wallet integration and metadata availability need a human testnet session.
-- A real compatible model provider has now been exercised for a private English content draft; long-running production usage and billing controls have not been validated.
-- No production deployment, production multi-user authorization, mainnet rollout or third-party audit has occurred.
-
-## Next acceptance session
-
-1. Open the local app in a normal browser with an EVM wallet extension.
-2. Check desktop and mobile layout.
-3. Deploy the factory with a dedicated BNB Testnet wallet.
-4. Pin real metadata, launch one test token, and keep the public explorer receipt.
-5. Verify protocol revenue and each recipient's payout against explorer receipts.
-6. Configure the chosen model provider and review a generated English brief.
+No public factory/token deployment, independent audit, live market liquidity or hosted service is claimed. Public wallet-signing validation and real-network issuance/payout receipts remain outstanding. Test results are not an audit or a financial safety guarantee.

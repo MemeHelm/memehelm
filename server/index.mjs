@@ -1,13 +1,12 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { randomUUID, randomBytes } from 'node:crypto';
-import { Worker } from 'node:worker_threads';
 import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isAddress, getAddress, zeroAddress, encodeFunctionData, parseAbi,erc20Abi } from 'viem';
-import { NETWORK, AUDIT_REFERENCE_ETH } from '../shared/config.mjs';
+import { isAddress, getAddress, zeroAddress, encodeFunctionData, parseEther,erc20Abi,parseEventLogs } from 'viem';
+import { NETWORK } from '../shared/config.mjs';
 import { buildLaunchParams, validateLaunch } from '../shared/launch.mjs';
-import { publicClient, artifact, chainStatus, snapshot, verifyChain,verifyLaunchConfiguration } from './chain.mjs';
+import { publicClient, artifact, chainStatus, snapshot, verifyChain,verifyFactory } from './chain.mjs';
 import { aiConfigured, generateCopilot } from './copilot.mjs';
 import {AsyncLocalStorage} from 'node:async_hooks';
 import {createAuth} from './auth.mjs';
@@ -16,14 +15,13 @@ import {createMonitor} from './monitor.mjs';
 import {createWorkspaceStore} from './workspace.mjs';
 import {imageLink,projectLink,publicProject} from '../shared/project.mjs';
 const root = fileURLToPath(new URL('../',import.meta.url));
-const dataDirectory = resolve(root, process.env.DATA_DIRECTORY || 'data/robinhood-testnet');
+const dataDirectory = resolve(root, process.env.DATA_DIRECTORY || 'data/robinhood-independent');
 const workspace=createWorkspaceStore(dataDirectory);
 const auth=createAuth(),context=new AsyncLocalStorage(),market=createMarket(workspace),monitor=createMonitor(workspace,market);
 const allProjects=async()=>(await workspace.projects()).filter(project=>project.chainId===NETWORK.id&&project.owner);
 const projects=async()=>(await allProjects()).filter(project=>project.owner===context.getStore()?.owner),mutate=workspace.mutateProjects;
 const aiRequests=new Map();
 const aiInFlight=new Set();
-let mining = false;
 function reserveAIRequest(owner){
   if(!aiConfigured())throw new Error('Copilot is temporarily unavailable. Please try again later.');
   const times=(aiRequests.get(owner)||[]).filter(time=>Date.now()-time<3600000);
@@ -55,7 +53,7 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='GET'&&path==='/api/watches')return json(res,200,workspace.read('watches').filter(item=>item.owner===owner));
     if(req.method==='POST'&&path==='/api/watches'){
       const input=await body(req),tokenAddress=address(input.address).toLowerCase(),priceThreshold=Number(input.priceThreshold??10);if(!Number.isFinite(priceThreshold)||priceThreshold<1||priceThreshold>100)throw new Error('Choose a price threshold from 1% to 100%.');
-      const token=await market.details(tokenAddress);return json(res,200,await workspace.change('watches',records=>{let item=records.find(item=>item.owner===owner&&item.address===tokenAddress);if(!item){if(records.filter(item=>item.owner===owner).length>=20)throw new Error('Your watchlist supports up to 20 tokens.');item={id:randomUUID(),owner,address:tokenAddress};records.push(item);}Object.assign(item,{symbol:token.symbol||'TOKEN',enabled:input.enabled!==false,priceThreshold,last:{price:token.price,holdersCount:token.holdersCount,graduated:token.graduated},checkedAt:token.checkedAt,error:null});return item;}));
+      const token=await market.details(tokenAddress);return json(res,200,await workspace.change('watches',records=>{let item=records.find(item=>item.owner===owner&&item.address===tokenAddress);if(!item){if(records.filter(item=>item.owner===owner).length>=20)throw new Error('Your watchlist supports up to 20 tokens.');item={id:randomUUID(),owner,address:tokenAddress};records.push(item);}Object.assign(item,{symbol:token.symbol||'TOKEN',enabled:input.enabled!==false,priceThreshold,last:{price:token.price,holdersCount:token.holdersCount,graduated:null},priceAvailable:token.price!==null,checkedAt:token.checkedAt,error:null});return item;}));
     }
     if(req.method==='POST'&&path==='/api/watches/check')return json(res,200,await monitor.check(owner));
     if(req.method==='POST'&&path==='/api/watches/remove'){const input=await body(req);await workspace.change('watches',records=>{const index=records.findIndex(item=>item.id===input.id&&item.owner===owner);if(index<0)throw Object.assign(new Error('Watch not found.'),{status:404});records.splice(index,1);});return json(res,200,{ok:true});}
@@ -69,7 +67,7 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='GET'&&path==='/api/alerts')return json(res,200,workspace.read('alerts').filter(item=>item.owner===owner).reverse().slice(0,100));
     if(req.method==='POST'&&path==='/api/alerts/read'){const input=await body(req);await workspace.change('alerts',records=>{for(const item of records)if(item.owner===owner&&(!input.id||item.id===input.id))item.read=true;});return json(res,200,{ok:true});}
 
-    if(req.method==='GET'&&path==='/api/status')return json(res,200,{network:NETWORK,chain:await chainStatus(),aiConfigured:aiConfigured(),factory:process.env.ROBINHOOD_SPLIT_FACTORY_ADDRESS||null,auditReferenceETH:AUDIT_REFERENCE_ETH,mode:'testnet',auditStatus:'unaudited'});
+    if(req.method==='GET'&&path==='/api/status')return json(res,200,{network:NETWORK,chain:await chainStatus(),aiConfigured:aiConfigured(),factory:process.env.MEMEHELM_LAUNCH_FACTORY_ADDRESS||null,mode:'testnet',auditStatus:'unaudited'});
     if(req.method==='GET'&&path.startsWith('/api/artifacts/'))return json(res,200,await artifact(path.split('/').pop()));
     if(req.method==='GET'&&path==='/api/projects')return json(res,200,await projects());
     if(req.method==='POST'&&path==='/api/projects'){
@@ -82,10 +80,11 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
       const launchHash=input.launchHash?String(input.launchHash):null;
       if(launchHash&&!/^0x[0-9a-fA-F]{64}$/.test(launchHash))throw new Error('Invalid launch transaction hash.');
       // A receipt is checked before a project can be called a confirmed launch.
-      if(launchHash){await verifyChain();const receipt=await publicClient.getTransactionReceipt({hash:launchHash});if(receipt.from?.toLowerCase()!==owner||receipt.status!=='success'||receipt.to?.toLowerCase()!==NETWORK.vaultPortal.toLowerCase())throw new Error('Launch transaction could not be verified.');const eventAbi=(await artifact('IVaultPortal')).abi;const {parseEventLogs}=await import('viem');const events=parseEventLogs({abi:eventAbi,logs:receipt.logs,eventName:'FlapTaxVaultTokenCreated'});if(!events.some(e=>e.address.toLowerCase()===NETWORK.vaultPortal.toLowerCase()&&e.args.token?.toLowerCase()===tokenAddress?.toLowerCase()&&e.args.vault?.toLowerCase()===vaultAddress?.toLowerCase()))throw new Error('Launch receipt does not contain this token and vault.');}
+      let launchFactory=address(input.launchFactory,true);
+      if(launchHash){await verifyChain();const receipt=await publicClient.getTransactionReceipt({hash:launchHash});if(receipt.from?.toLowerCase()!==owner||receipt.status!=='success'||!receipt.to)throw new Error('Launch transaction could not be verified.');if(launchFactory&&launchFactory.toLowerCase()!==receipt.to.toLowerCase())throw new Error('Launch factory does not match the receipt.');launchFactory=receipt.to;const {abi}=await verifyFactory(launchFactory);const events=parseEventLogs({abi,logs:receipt.logs,eventName:'TokenCreated'});if(!events.some(e=>e.address.toLowerCase()===launchFactory.toLowerCase()&&e.args.creator?.toLowerCase()===owner&&e.args.token?.toLowerCase()===tokenAddress?.toLowerCase()&&e.args.vault?.toLowerCase()===vaultAddress?.toLowerCase()&&e.args.name===name&&e.args.symbol===symbol))throw new Error('Launch receipt does not contain this token, creator and vault.');}
       const previous=input.draftId?await findProject(input.draftId):null;if(previous&&previous.status!=='draft')throw new Error('This project has already launched. Start a new draft.');
-      const project={id:previous?.id||randomUUID(),owner,name,symbol,description:String(input.description||'').slice(0,2000),image:imageLink(input.image),website:projectLink(input.website),x:projectLink(input.x,'x'),telegram:projectLink(input.telegram,'telegram'),tokenAddress,vaultAddress,launchHash,status:launchHash?'launched':tokenAddress?'imported':'draft',chainId:NETWORK.id,createdAt:previous?.createdAt||new Date().toISOString(),published:false};
-      if(!tokenAddress&&input.draft&&typeof input.draft==='object')project.draft=Object.fromEntries(['name','symbol','description','meta','image','website','x','telegram','projectTreasury','auditTreasury','factory','auditBps','buyTaxRate','sellTaxRate','taxDays','antiFarmerDays','initialBuy'].filter(key=>['string','number'].includes(typeof input.draft[key])).map(key=>[key,typeof input.draft[key]==='string'?input.draft[key].slice(0,2000):input.draft[key]]));
+      const project={id:previous?.id||randomUUID(),owner,name,symbol,description:String(input.description||'').slice(0,2000),image:imageLink(input.image),website:projectLink(input.website),x:projectLink(input.x,'x'),telegram:projectLink(input.telegram,'telegram'),tokenAddress,vaultAddress,launchHash,launchFactory,status:launchHash?'launched':tokenAddress?'imported':'draft',chainId:NETWORK.id,createdAt:previous?.createdAt||new Date().toISOString(),published:false};
+      if(!tokenAddress&&input.draft&&typeof input.draft==='object')project.draft=Object.fromEntries(['name','symbol','description','meta','image','website','x','telegram','projectTreasury','auditTreasury','factory','auditBps','totalSupply','initialFunding'].filter(key=>['string','number'].includes(typeof input.draft[key])).map(key=>[key,typeof input.draft[key]==='string'?input.draft[key].slice(0,2000):input.draft[key]]));
       await mutate(list=>{const index=list.findIndex(item=>item.id===project.id);if(index>=0)list[index]=project;else list.push(project);return project;});
       if(launchHash)await workspace.appendActivity(project.id,{kind:'launch',title:'Token launched',content:`$${symbol} launched on Robinhood Testnet.`,transactionHash:launchHash,public:true});
       return json(res,201,project);
@@ -109,26 +108,11 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
       }finally{aiInFlight.delete(owner);}
     }
     if(req.method==='POST'&&path==='/api/launch/prepare'){
-      if(mining)return json(res,429,{error:'A launch address is being prepared. Try again shortly.'});
-      const input=validateLaunch(await body(req));await verifyChain();await verifyLaunchConfiguration();
-      const factoryArtifact=await artifact('RevenueSplitFactory');
-      const factoryCode=await publicClient.getCode({address:input.factory});
-      // This immutable-field artifact has a beacon reference, so validate its public behavior too.
-      if(!factoryCode||factoryCode==='0x')throw new Error('Enable revenue splits on Robinhood Testnet before preparing this launch.');
-      const supports=await publicClient.readContract({address:input.factory,abi:factoryArtifact.abi,functionName:'isQuoteTokenSupported',args:[zeroAddress]});
-      if(!supports)throw new Error('Factory does not support native ETH.');
-      const beacon=await publicClient.readContract({address:input.factory,abi:factoryArtifact.abi,functionName:'beacon'});
-      const beaconAbi=parseAbi(['function owner() view returns (address)','function implementation() view returns (address)']);
-      const [beaconOwner,implementation]=await Promise.all(['owner','implementation'].map(functionName=>publicClient.readContract({address:beacon,abi:beaconAbi,functionName})));
-      if(beaconOwner.toLowerCase()!==NETWORK.guardian.toLowerCase())throw new Error('The factory beacon is not controlled by the expected Flap Guardian.');
-      const implementationCode=await publicClient.getCode({address:implementation});
-      if(implementationCode!==(await artifact('RevenueSplitVault')).deployedBytecode)throw new Error('The factory implementation does not match this local build. Review the deployment before continuing.');
-      mining=true;
-      let mined;
-      try{mined=await new Promise((resolve,reject)=>{const worker=new Worker(new URL('./vanity-worker.mjs',import.meta.url),{workerData:{implementation:NETWORK.taxTokenImplementation,portal:NETWORK.portal,seed:BigInt(`0x${randomBytes(8).toString('hex')}`).toString()}});const timer=setTimeout(()=>{worker.terminate();reject(new Error('Address preparation timed out. Try again.'));},45000);worker.once('message',result=>{clearTimeout(timer);worker.terminate();resolve(result);});worker.once('error',error=>{clearTimeout(timer);reject(error);});});}finally{mining=false;}
-      const existing=await publicClient.getCode({address:mined.predicted});if(existing&&existing!=='0x')throw new Error('Prepared address is already in use. Try again.');
-      const params=buildLaunchParams(input,mined.salt);const {abi}=await artifact('IVaultPortal');
-      return json(res,200,{chainId:NETWORK.id,to:NETWORK.vaultPortal,data:encodeFunctionData({abi,functionName:'newTokenV6WithVault',args:[params]}),value:params.quoteAmt.toString(),salt:mined.salt,predictedToken:mined.predicted,settings:input});
+      const input=validateLaunch(await body(req));await verifyChain();
+      const {abi}=await verifyFactory(input.factory),params=buildLaunchParams(input),salt=`0x${randomBytes(32).toString('hex')}`;
+      const predictedToken=await publicClient.readContract({address:input.factory,abi,functionName:'predictTokenAddress',args:[owner,params,salt]});
+      const existing=await publicClient.getCode({address:predictedToken});if(existing&&existing!=='0x')throw new Error('Prepared address is already in use. Try again.');
+      return json(res,200,{chainId:NETWORK.id,to:input.factory,data:encodeFunctionData({abi,functionName:'createToken',args:[params,salt]}),value:parseEther(input.initialFunding).toString(),salt,predictedToken,settings:input});
     }
     if(req.method==='GET'&&!path.startsWith('/api/')){
       const requested=resolve(root,'dist',path==='/'||/^\/project\/[a-f0-9-]+$/.test(path)?'index.html':`.${path}`);
@@ -142,4 +126,4 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
 let monitorTimer;
 server.on('listening',()=>{monitorTimer=setInterval(()=>monitor.check().catch(()=>{}),60000);monitorTimer.unref();});
 server.on('close',()=>clearInterval(monitorTimer));
-if(process.argv[1]===fileURLToPath(import.meta.url)){const port=Number(process.env.PORT||4318);server.listen(port,'127.0.0.1',()=>console.log(`Flap Copilot API: http://127.0.0.1:${port}`));}
+if(process.argv[1]===fileURLToPath(import.meta.url)){const port=Number(process.env.PORT||4318);server.listen(port,'127.0.0.1',()=>console.log(`MemeHelm: http://127.0.0.1:${port}`));}

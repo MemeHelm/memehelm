@@ -1,3 +1,5 @@
+> Historical review of the superseded 2026-10-15 implementation. It does not assess the independent MemeHelm contracts introduced on 2026-11-12.
+
 # Internal Flap Vault Specification Review
 
 **Reviewer:** GPT-6-based coding assistant  

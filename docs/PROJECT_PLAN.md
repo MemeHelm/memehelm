@@ -1,36 +1,16 @@
-# Project plan
+# MemeHelm product plan
 
-## Product
+Updated 2026-11-12. Build an independent English-language token creation and AI operations workspace on Robinhood Chain. The user removed third-party launchpad dependence and deferred public hosting.
 
-An English-language launch and operations desk for Robinhood Chain creators using Flap. The first audience is small project teams that want a transparent revenue plan and an AI writing/research assistant without handing over a primary wallet key.
-
-## Milestones
-
-| Milestone | Deliverable | Acceptance criterion |
+| Stage | Scope | Evidence needed |
 | --- | --- | --- |
-| 0 — Local foundation | English UI, Flap interfaces, native split factory/vault, local API, AI configuration | App builds, contract and boundary tests pass, missing connections are explicit |
-| 1 — Public testnet proof | Wallet-signed factory deployment, Flap token creation and independent payouts | Explorer receipts connect creator → token → vault; observed revenue matches released + pending amounts |
-| 2 — Pricing and operating model | Explicit platform commission, project share, audit-reserve share, provider usage budget | Rates and destinations are visible before signing; no undisclosed address or fee |
-| 3 — Hosted service | Authentication, per-user data ownership, durable database, API abuse/rate controls, indexer and monitoring | Another user cannot read or modify a private workspace; restarts/reorgs/retries do not corrupt records |
-| 4 — Mainnet pilot | Separately reviewed production configuration and restricted initial rollout | Production transaction simulations, Flap path compatibility and operational recovery are demonstrated |
-| 5 — Funded audit | Partner review of the actual released factory/implementation version | Budget covers current quoted scope; report and risk status are linked to deployed addresses |
+| Local independent foundation | Fixed-supply issuance, immutable revenue splitter, wallet workspaces, discovery, holder monitoring, AI drafts | Passing contract, API ownership and UI checks; real provider access restored |
+| Public testnet verification | Wallet-signed factory deployment, issuance, initial deposit and payouts | Explorer receipts and balances connecting creator, token, vault and fixed recipients |
+| Trading mechanism | Separately designed liquidity/pool or sale mechanism, price/trade indexing and explicit fees | User-visible economics, simulation and actual testnet trading evidence; no invented liquidity |
+| Assisted operations | Richer token context, social account authorization, reviewed scheduling/publishing | Authenticated account integration, explicit publication control and actual delivery receipts |
+| Bounded automation | Dedicated limited-budget strategies and transparent receipts | Separate strategy contracts/permissions, adversarial tests, review and appropriately scoped audit |
+| Hosted release | HTTPS, production sessions, abuse protection, monitoring, durable backups/indexing | Deployment environment from the user and operational recovery checks |
 
-## Budget policy
+No audit is purchased during local development. Reserve allocations are user-selected accounting destinations, not certification or automatic audit payments. Mainnet, paid services and real-money execution need a separately reviewed release and appropriate authorization.
 
-Do not purchase an audit during development. Use local EVM and Robinhood Testnet first. Audit-reserve allocations are configurable per project. Keep testnet and real-income accounting separate. Record any real mainnet audit spending only after a separately authorized payment.
-
-The initial code is not a revenue guarantee. Without launched projects, trading activity, and a finalized commission model, platform revenue is zero. The local prototype uses no factory commission.
-
-## Required founder decisions before a public product
-
-1. Public domain and deployment for the selected MemeHelm brand.
-2. Which revenue belongs to the project and which funds the platform.
-3. Reserve percentage, ownership of the reserve wallet, withdrawal governance and whether the target stops or continues after an audit.
-4. Model provider, monthly spending ceiling and initial hosting budget.
-5. Which actions remain wallet-signed and which might later use bounded automation.
-
-These decisions do not block the current local/testnet foundation. They must be reflected in the UI and contract configuration before real user funds are involved.
-
-## First real integration session
-
-Use a dedicated Robinhood Testnet wallet, a second public treasury address and a valid pinned metadata CID. Deploy this factory from the app, launch a Tax Token V3 using native test ETH, then trace actual Flap revenue to the vault. Keep explorer transaction hashes as acceptance evidence. Do not infer that a passing local mock test proves the live protocol path.
+Existing local work contains no automatic trading revenue. A fixed-supply token and its vault alone cannot fund an audit without actual deposited income. Protocol fees, platform charges, liquidity and reserve allocations must be explained separately before introducing them.

@@ -1,16 +1,17 @@
 {
-  "name": "flap-copilot",
+  "name": "memehelm",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc --noEmit && vite build",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "contracts:build": "node scripts/compile-contracts.mjs",
     "contracts:test": "node scripts/test-foundry.mjs",
-    "contracts:test:fork": "node scripts/test-foundry.mjs --fork",
     "test": "node --test --test-isolation=none --test-concurrency=1 test/*.test.mjs",
     "check": "pnpm contracts:build && pnpm test && pnpm build"
   },

@@ -10,14 +10,14 @@ import {createWorkspaceStore} from '../server/workspace.mjs';
 import {publicClient} from '../server/chain.mjs';
 import {signedClient} from './helpers/auth.mjs';
 
-const valid={name:'Orbit Club',symbol:'ORBIT',description:'A community for builders.',meta:'Qm'+'1'.repeat(44),image:'',website:'',x:'',telegram:'',projectTreasury:'0x1111111111111111111111111111111111111111',auditTreasury:'0x2222222222222222222222222222222222222222',factory:'0x3333333333333333333333333333333333333333',auditBps:1000,buyTaxRate:300,sellTaxRate:300,taxDays:365,antiFarmerDays:3,initialBuy:'0'};
+const valid={name:'Orbit Club',symbol:'ORBIT',description:'A community for builders.',meta:'Qm'+'1'.repeat(44),image:'',website:'',x:'',telegram:'',projectTreasury:'0x1111111111111111111111111111111111111111',auditTreasury:'0x2222222222222222222222222222222222222222',factory:'0x3333333333333333333333333333333333333333',auditBps:1000,totalSupply:'1000000000',initialFunding:'0'};
 test('launch steps gate missing metadata, duplicate destinations and invalid economics',()=>{
   for(let step=0;step<3;step++)assert.deepEqual(launchStepErrors(valid,step),{});
   assert.doesNotThrow(()=>validateLaunch(valid));
   assert.ok(launchStepErrors({...valid,meta:'https://untrusted.example'},0).meta);
   assert.ok(launchStepErrors({...valid,auditTreasury:' '+valid.projectTreasury+' '},1).auditTreasury);
-  assert.ok(launchStepErrors({...valid,buyTaxRate:0,initialBuy:'1.000000000000000001'},2).buyTaxRate);
-  assert.ok(launchStepErrors({...valid,initialBuy:'1.000000000000000001'},2).initialBuy);
+  assert.ok(launchStepErrors({...valid,totalSupply:'0'},2).totalSupply);
+  assert.ok(launchStepErrors({...valid,initialFunding:'1.000000000000000001'},2).initialFunding);
   for(const auditBps of [0,10000])assert.deepEqual(launchStepErrors({...valid,auditBps},1),{});
 });
 test('community links reject executable URLs, userinfo, and incorrect social hosts',()=>{
