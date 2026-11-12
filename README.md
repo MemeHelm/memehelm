@@ -1,60 +1,43 @@
 # MemeHelm
 
-**Launch it. Steer it.** An independent, English-language token creation and operations workspace on **Robinhood Chain**. MemeHelm is not affiliated with or endorsed by Robinhood.
+**Launch it. Steer it.** An English-language creator workspace on **Robinhood Chain mainnet (4663)**, with issuance and trading through **pons v2**. MemeHelm is independent of Robinhood and pons; neither endorsement nor affiliation is implied.
 
-This release runs locally on **Robinhood Testnet, chain 46630**. Mainnet transactions remain blocked. Public hosting is deferred at the user's request.
+The user selected mainnet development on 2026-11-12. There is no testnet product. The backend never holds a signing key or broadcasts user transactions. Users review and sign each onchain action in their own EVM wallet. Public hosting remains deferred.
 
-## Independent issuance
+## Product
 
-MemeHelm uses its own `MemeHelmLaunchFactory`, fixed-supply `MemeHelmToken` and non-upgradeable `RevenueSplitVault`. No third-party launchpad, registry, Guardian or protocol fee is required. The previous Flap integration has been removed.
+- Four-step issuance: identity and hosted artwork, direct recipient or fixed two-wallet ETH split, live issuance economics, and mainnet review. No factory deployment or creator preallocation. Pons receives the launch fee and mints supply to its curve.
+- Live per-wallet launch permission, enabled supply/curve plans, creator-fee cap and launch fee. Every prepared launch pins the protocol economics and expires after 90 seconds.
+- Wallet-signed curve buys/sells, final-buy partial-fill refunds, and graduated Uniswap v4 trades using Universal Router 2.1.2 and exact ERC-20/Permit2 approvals. Quotes show fees, slippage, minimum output, expiry and each signature step.
+- Revenue separates unsettled gross protocol fees, the recipient-wide ETH escrow balance, and ETH received/released by the fixed splitter. Settle eligible ETH fees, collect escrow funds, then release each fixed share. Fees requiring conversion/buybacks wait for the protocol operator.
+- Discovery reads recent official factory launches. Token details include native-ETH spot prices, indicative FDV, real curve reserves, graduation phase, observed prices and recent verified trades. Holder data is optional from Blockscout. Coverage is bounded and stated; there are no invented USD prices or historical candles.
+- Private watchlists and observed price/holder/graduation alerts. Monitoring runs only while the local server runs, and never calls paid AI or signs transactions automatically.
+- AI assistant name, voice and community goal; requested daily briefs, social drafts, seven-day plans and signal briefs. Draft history is private until explicitly shared on the creator’s opt-in project page. **The configured provider still rejects live generation; mocked-provider tests do not establish provider access.**
+- Branded desktop, movable/resizable windows, taskbar, split calculator, wandering light points, entrance motion and reduced-motion support. All user-facing copy is English.
 
-- A creator signs a transaction to deploy the factory, unless a matching factory is already configured. Its deployed runtime bytecode must match the compiled artifact.
-- A launch creates an ERC-20 with 18 decimals and a chosen fixed supply, delivered entirely to the signing creator. There is no additional mint, token owner, transfer tax, blacklist or upgrade function.
-- Each launch creates a separate native-ETH splitter with two fixed recipient wallets and a fixed reserve percentage. Anyone can trigger a payment, but cannot redirect it.
-- Optional initial funding is an **ETH deposit to the split vault**, not a token purchase. The testnet cap is 1 ETH. There is no separate launch commission; network gas still applies.
-- **Launching does not create a trading pool, bonding curve, market price or liquidity. There are no automatic trading fees, buybacks, holder rewards or market-making strategies.** Those require separate implementations and validation.
-- Token and metadata information use manually supplied IPFS links. Local image selection previews a file; it does not upload it.
+Autonomous market making and cross-chain issuance are excluded. Buyback vesting is not offered by this launch flow. Local image files are previews; supply a hosted HTTPS/IPFS image link to publish artwork.
 
-## Workspace
+## Run locally
 
-- A branded desktop with movable/resizable windows, Start menu, taskbar, restrained entrance animation, wandering light points and reduced-motion support.
-- Four-step launch flow, private drafts, split calculator, treasury balances, independent payouts, project imports and opt-in community pages.
-- Discover indexes confirmed events from verified MemeHelm factories. Generic Robinhood ERC-20 lookup reads supply/name/symbol/decimals from RPC and holder data from Blockscout. No unsupported price, volume, graduation or trading history is shown.
-- Signals checks observed holder counts every minute while the local backend runs. Missing data does not create an alert. Private watches can be paused or removed, and alerts marked read.
-- Requested AI daily briefs, social drafts, community plans and signal explanations, with private saved history and explicit sharing. No automatic social posting or financial action. The current real provider has returned HTTP 403; provider access must be restored for live generation. Mocked-provider integration tests are separate evidence.
-- EIP-4361 wallet sessions, one-use challenges, HttpOnly cookies, wallet-owned APIs and a transactional local SQLite store. Private drafts, model credentials and runtime data are excluded from Git.
+Node.js 24+, pnpm and an EVM browser wallet are required. No seed phrase or wallet private key belongs in the backend.
 
-## Local setup
-
-Use Node.js 24+, pnpm and an EVM browser wallet. No seed phrase or private signing key is required by the backend.
-
-```sh
+~~~sh
 pnpm install
 pnpm contracts:build
 pnpm dev
-```
+~~~
 
-Open `http://127.0.0.1:4317`; the API listens on `127.0.0.1:4318`. For the built app, run `pnpm build` and `pnpm start`, then open port 4318.
+Development UI: http://127.0.0.1:4317. API: http://127.0.0.1:4318. For the built app, run `pnpm build` and `pnpm start`, then use port 4318.
 
-Copy `.env.example` to the ignored `.env` when configuration is needed:
+Copy .env.example to the ignored .env if configuration is needed. The optional RPC override is ROBINHOOD_MAINNET_RPC_URL; its chain must be 4663. AI_API_BASE, AI_API_KEY and AI_MODEL stay server-side. APP_ORIGIN defines the wallet-sign-in origin. DATA_DIRECTORY defaults to data/robinhood-mainnet-pons-v2. Earlier prototype databases and wallet-scoped browser keys are not reused.
 
-| Variable | Purpose |
-| --- | --- |
-| `APP_ORIGIN` | Wallet sign-in origin; defaults to local port 4318 |
-| `ROBINHOOD_TESTNET_RPC_URL` | RPC checked for chain 46630 |
-| `MEMEHELM_LAUNCH_FACTORY_ADDRESS` | Optional deployed factory matching this exact build |
-| `AI_API_BASE`, `AI_API_KEY`, `AI_MODEL` | Server-only model provider configuration |
-| `DATA_DIRECTORY` | Optional workspace path; default `data/robinhood-independent` |
+## Verify
 
-Previous factory environment variables and browser factory/draft keys are not reused. Historical workspace files remain untouched. This prevents old protocol data from being presented as independent launches.
-
-## Verification and remaining work
-
-```sh
+~~~sh
 pnpm check
 pnpm contracts:test
-```
+~~~
 
-Node tests include local-EVM issuance, API preparation, signed launch receipt verification, publication, vault reads and payouts, plus authorization, recipient isolation and reentrancy checks. Foundry includes supply/deposit checks, a mainnet deployment rejection and 256 accounting fuzz cases. These are local tests, not a public deployment or audit.
+See [validation](docs/VALIDATION.md) for local fork verification. All fork writes target a local Anvil process, never the mainnet RPC. Pons deployments and runtime hashes are pinned in shared/pons-addresses.mjs and rechecked before preparing writes. Independent contract audit, public hosting and a human-signed real mainnet launch are not completed by local tests.
 
-A real wallet-signed public-testnet deployment/launch/payout is still outstanding. There is no audited release, live trading engine or publicly hosted backend. Audit fees have not been purchased; an internal historical review does not cover these new contracts. See [validation](docs/VALIDATION.md), [protocol notes](docs/PROTOCOL_NOTES.md) and [product scope](docs/PRODUCT_RELEASE.md).
+[Protocol integration](docs/PROTOCOL_NOTES.md) · [scope](docs/PRODUCT_RELEASE.md) · [plan](docs/PROJECT_PLAN.md)

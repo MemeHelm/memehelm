@@ -3,7 +3,7 @@ import {NETWORK} from '../shared/config.mjs';
 export type Provider={request(args:{method:string;params?:any[]}):Promise<any>;on?:(event:string,listener:(value:any)=>void)=>void;removeListener?:(event:string,listener:(value:any)=>void)=>void};
 declare global { interface Window { ethereum?:Provider } }
 export function provider(){if(!window.ethereum)throw new Error('Open this app in a browser with an EVM wallet extension, such as MetaMask or Rabby.');return window.ethereum;}
-export async function connectWallet(){await provider().request({method:'eth_requestAccounts'});await switchTestnet();const accounts=await provider().request({method:'eth_accounts'});if(!accounts[0])throw new Error('Choose an account in your wallet to continue.');return accounts[0] as string;}
+export async function connectWallet(){await provider().request({method:'eth_requestAccounts'});await switchMainnet();const accounts=await provider().request({method:'eth_accounts'});if(!accounts[0])throw new Error('Choose an account in your wallet to continue.');return accounts[0] as string;}
 export async function signInMessage(address:string,message:string){
   const wallet=provider();
   if((await wallet.request({method:'eth_accounts'}))[0]?.toLowerCase()!==address.toLowerCase())throw new Error('Your wallet changed. Sign in again.');
@@ -11,24 +11,26 @@ export async function signInMessage(address:string,message:string){
   if((await wallet.request({method:'eth_accounts'}))[0]?.toLowerCase()!==address.toLowerCase())throw new Error('Your wallet changed. Sign in again.');
   return signature as string;
 }
-export async function switchTestnet(){
+export async function switchMainnet(){
   const wallet=provider();
   const chainId=numberToHex(NETWORK.id);
   try{await wallet.request({method:'wallet_switchEthereumChain',params:[{chainId}]});}
   catch(error:any){if(error.code!==4902)throw error;await wallet.request({method:'wallet_addEthereumChain',params:[{chainId,chainName:NETWORK.name,nativeCurrency:{name:'Ether',symbol:NETWORK.currency,decimals:18},rpcUrls:[NETWORK.rpc],blockExplorerUrls:[NETWORK.explorer]}]});await wallet.request({method:'wallet_switchEthereumChain',params:[{chainId}]});}
 }
-export async function sendTestnet(from:string,tx:{to?:string;data?:string;value?:string;chainId?:number}){
-  if(tx.chainId!==undefined&&tx.chainId!==NETWORK.id)throw new Error('This transaction was prepared for another network. Prepare it again on Robinhood Testnet.');
+export async function sendTransaction(from:string,tx:{to?:string;data?:string;value?:string;chainId?:number;expiresAt?:string}){
+  if(tx.chainId!==undefined&&tx.chainId!==NETWORK.id)throw new Error('This transaction was prepared for another network. Prepare it again on Robinhood Chain.');
+  if(tx.expiresAt&&Date.parse(tx.expiresAt)<=Date.now())throw new Error('This review expired. Request fresh terms before signing.');
   const wallet=provider();
   const accounts=await wallet.request({method:'eth_accounts'});
   if(accounts[0]?.toLowerCase()!==from.toLowerCase())throw new Error('The active wallet changed. Reconnect before continuing.');
-  if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==NETWORK.id)await switchTestnet();
+  if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==NETWORK.id)await switchMainnet();
   if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==NETWORK.id)throw new Error(`Switch your wallet to ${NETWORK.shortName} first.`);
   const request={from,...(tx.to?{to:tx.to}:{}),data:tx.data||'0x',value:numberToHex(BigInt(tx.value||'0'))};
   const estimated=await wallet.request({method:'eth_estimateGas',params:[request]});
   const currentAccounts=await wallet.request({method:'eth_accounts'});
   if(currentAccounts[0]?.toLowerCase()!==from.toLowerCase())throw new Error('The active wallet changed. Reconnect before continuing.');
   if(Number(hexToBigInt(await wallet.request({method:'eth_chainId'})))!==NETWORK.id)throw new Error(`The wallet network changed. Switch back to ${NETWORK.shortName} before continuing.`);
+  if(tx.expiresAt&&Date.parse(tx.expiresAt)<=Date.now())throw new Error('This review expired. Request fresh terms before signing.');
   const hash=await wallet.request({method:'eth_sendTransaction',params:[{...request,gas:numberToHex(hexToBigInt(estimated)*120n/100n)}]});
   for(let attempt=0;attempt<120;attempt++){
     const receipt=await wallet.request({method:'eth_getTransactionReceipt',params:[hash]});

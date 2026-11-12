@@ -1,47 +1,42 @@
-import {getAddress,isAddress,erc20Abi,toEventSelector,decodeEventLog} from 'viem';
+import {getAddress,isAddress,erc20Abi,formatUnits,parseAbiItem,zeroAddress} from 'viem';
 import {NETWORK} from '../shared/config.mjs';
-import {publicClient,artifact,verifyFactory} from './chain.mjs';
-export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch(...args),now=()=>Date.now()}={}){
-  let cachedFeed=null,feedPending=null;const pending=new Map();
-  async function verifyChain(){if(await client.getChainId()!==NETWORK.id)throw new Error('Market data belongs to another network.');}
-  async function explorer(path){const response=await fetcher(`${NETWORK.explorer}/api/v2${path}`,{signal:AbortSignal.timeout(8000)});if(!response.ok)throw new Error('Explorer data is temporarily unavailable.');return response.json();}
+import {PONS,factoryAbi,curveAbi,tokenInfoAbi,poolKey,poolId} from '../shared/pons.mjs';
+import {imageLink} from '../shared/project.mjs';
+import {publicClient} from './chain.mjs';
+import {createPons} from './pons.mjs';
+const source='Pons v2 / Robinhood mainnet';
+const safeImage=value=>{try{return imageLink(value);}catch{return '';}};
+const swapEvent=parseAbiItem('event Swap(bytes32 indexed id,address indexed sender,int128 amount0,int128 amount1,uint160 sqrtPriceX96,uint128 liquidity,int24 tick,uint24 fee)');
+export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch(...args),now=()=>Date.now(),protocol=createPons({client,now})}={}){
+  let cachedFeed=null,feedPending=null;const pending=new Map(),tradeCache=new Map();
+  const times=new Map();
+  async function timestamp(block){const key=String(block);if(!times.has(key)){times.set(key,client.getBlock({blockNumber:BigInt(block)}).then(b=>new Date(Number(b.timestamp)*1000).toISOString()));if(times.size>1000)times.delete(times.keys().next().value);}try{return await times.get(key);}catch(e){times.delete(key);throw e;}}
+  async function explorer(path){const response=await fetcher(`${NETWORK.explorer}/api/v2${path}`,{signal:AbortSignal.timeout(5000)});if(!response.ok)throw new Error('Holder data is temporarily unavailable.');return response.json();}
+  async function recentLogs(parameters,range=20000n){const latest=await client.getBlockNumber(),from=latest>range?latest-range:0n;const parts=[];for(let start=from;start<=latest;start+=5000n)parts.push(client.getLogs({...parameters,fromBlock:start,toBlock:start+4999n<latest?start+4999n:latest}));const results=await Promise.allSettled(parts);if(results.every(r=>r.status==='rejected'))throw new Error('Recent chain events are temporarily unavailable.');return{logs:results.flatMap(r=>r.status==='fulfilled'?r.value:[]).filter(r=>!r.removed),fromBlock:String(from),toBlock:String(latest),partial:results.some(r=>r.status==='rejected')};}
   async function feed(){
     if(cachedFeed&&now()-cachedFeed.fetchedAt<60000)return cachedFeed;if(feedPending)return feedPending;
-    feedPending=(async()=>{
-      const projects=await store.projects();
-      const factories=[...new Set([process.env.MEMEHELM_LAUNCH_FACTORY_ADDRESS,...projects.filter(p=>p.chainId===NETWORK.id&&p.published&&p.owner&&p.launchHash).map(p=>p.launchFactory)].filter(value=>isAddress(value||'',{strict:false})).map(value=>value.toLowerCase()))];
-      if(!factories.length)return {items:[],checkedAt:new Date(now()).toISOString(),scope:'Verified MemeHelm launches',fetchedAt:now()};
-      await verifyChain();const event=(await artifact('MemeHelmLaunchFactory')).abi.find(item=>item.type==='event'&&item.name==='TokenCreated');
-      const latest=await client.getBlockNumber(),fromBlock=latest>60000n?latest-60000n:0n;
-      const results=await Promise.allSettled(factories.map(async factory=>{
-        await verifyFactory(factory,client);
-        const records=await Promise.allSettled([client.getLogs({address:factory,event,fromBlock,toBlock:latest}),indexed(factory,event)]);
-        if(records.every(result=>result.status==='rejected'))throw new Error('Launch events unavailable.');
-        return records.flatMap(result=>result.status==='fulfilled'?result.value:[]).filter(log=>!log.removed&&log.args?.token&&log.address?.toLowerCase()===factory);
-      }));
-      if(results.every(result=>result.status==='rejected'))throw new Error('Launches could not be loaded. Please try again.');
-      const records=results.flatMap(result=>result.status==='fulfilled'?result.value:[]).sort((a,b)=>Number(b.args.ts)-Number(a.args.ts)),unique=new Map();
-      for(const log of records)if(!unique.has(log.args.token.toLowerCase()))unique.set(log.args.token.toLowerCase(),log);
-      const items=[...unique.values()].slice(0,60).map(log=>({id:log.args.token,tokenAddress:log.args.token,name:log.args.name,symbol:log.args.symbol,creator:log.args.creator,createdAt:new Date(Number(log.args.ts)*1000).toISOString(),transactionHash:log.transactionHash,source:'MemeHelm'}));
-      cachedFeed={items,fetchedAt:now(),checkedAt:new Date(now()).toISOString(),fromBlock:String(fromBlock),toBlock:String(latest),scope:'Recent RPC events and latest explorer event page per verified MemeHelm factory',partial:results.some(result=>result.status==='rejected')};return cachedFeed;
+    feedPending=(async()=>{await protocol.verify();const event=factoryAbi.find(e=>e.type==='event'&&e.name==='TokenLaunched'),page=await recentLogs({address:PONS.factory.address,event});const unique=new Map();for(const log of page.logs.sort((a,b)=>Number(b.blockNumber-a.blockNumber)||Number(b.logIndex-a.logIndex)))if(!unique.has(log.args.token.toLowerCase()))unique.set(log.args.token.toLowerCase(),log);
+      const results=await Promise.allSettled([...unique.values()].slice(0,30).map(async log=>{const token=log.args.token,[name,symbol,createdAt,info]=await Promise.all([client.readContract({address:token,abi:erc20Abi,functionName:'name'}),client.readContract({address:token,abi:erc20Abi,functionName:'symbol'}),timestamp(log.blockNumber),client.readContract({address:token,abi:tokenInfoAbi,functionName:'getTokenInfo'}).catch(()=>null)]);return{id:token,tokenAddress:token,name,symbol,image:safeImage(info?.[1]),creator:log.args.deployer,curve:log.args.curve,pairToken:log.args.pairToken,createdAt,transactionHash:log.transactionHash,source};}));
+      cachedFeed={items:results.flatMap(r=>r.status==='fulfilled'?[r.value]:[]),checkedAt:new Date(now()).toISOString(),fetchedAt:now(),fromBlock:page.fromBlock,toBlock:page.toBlock,partial:page.partial||results.some(r=>r.status==='rejected'),scope:'Recent 20,000 blocks from the official pons v2 factory. This is not an all-time launch list.'};return cachedFeed;
     })().finally(()=>{feedPending=null;});return feedPending;
   }
-  async function indexed(factory,event){const page=await explorer(`/addresses/${factory}/logs?topic=${toEventSelector(event)}`);return page.items.filter(item=>item.address?.hash?.toLowerCase()===factory).flatMap(item=>{try{return [{address:factory,args:decodeEventLog({abi:[event],data:item.data,topics:item.topics.filter(Boolean)}).args,transactionHash:item.transaction_hash,blockNumber:item.block_number,logIndex:item.index}];}catch{return [];}});}
-  async function trades(){return {items:[],available:false,scope:'No verified trading-pool source is linked. Token transfers are not reported as trades.'};}
   async function details(input){
-    if(!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');const address=getAddress(input.toLowerCase()),key=address.toLowerCase(),recent=store.read('market').find(item=>item.address===key&&item.data?.source==='Robinhood RPC + Blockscout');
-    if(recent&&now()-recent.fetchedAt<30000)return recent.data;if(pending.has(key))return pending.get(key);
-    const work=(async()=>{
-      await verifyChain();const code=await client.getCode({address});if(!code||code==='0x')throw new Error('No token contract was found at this address on Robinhood Testnet.');
-      const [name,symbol,totalSupply,decimals]=await Promise.all(['name','symbol','totalSupply','decimals'].map(functionName=>client.readContract({address,abi:erc20Abi,functionName})));
-      if(typeof name!=='string'||typeof symbol!=='string'||typeof totalSupply!=='bigint'||!Number.isInteger(Number(decimals)))throw new Error('This address could not be verified as an ERC-20 token.');
-      const [info,holderResult]=await Promise.allSettled([explorer(`/tokens/${address}`),explorer(`/tokens/${address}/holders`)]),token=info.status==='fulfilled'?info.value:null;
-      const holders=holderResult.status==='fulfilled'&&Array.isArray(holderResult.value.items)?holderResult.value.items.map(item=>({address:item.address?.hash,balance:String(item.value)})).filter(item=>item.address):[];
-      const checkedAt=new Date(now()).toISOString(),data={address,name,symbol,chainId:NETWORK.id,checkedAt,currency:'test ETH',price:null,reserve:null,progress:null,graduated:null,pool:null,buyTaxBps:null,sellTaxBps:null,holdersCount:token?.holders_count==null?null:Number(token.holders_count),totalSupply:totalSupply.toString(),decimals:Number(decimals),holders,holderDataAvailable:holderResult.status==='fulfilled',marketCap:null,volume:null,source:'Robinhood RPC + Blockscout'};
+    if(!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');const address=getAddress(input.toLowerCase()),key=address.toLowerCase(),recent=store.read('market').find(item=>item.address===key&&item.data?.source===source);if(recent&&now()-recent.fetchedAt<30000)return recent.data;if(pending.has(key))return pending.get(key);
+    const work=(async()=>{await protocol.verify();const[name,symbol,totalSupply,decimals,launch]=await Promise.all(['name','symbol','totalSupply','decimals'].map(functionName=>client.readContract({address,abi:erc20Abi,functionName})).concat(client.readContract({address:PONS.factory.address,abi:factoryAbi,functionName:'getLaunchedToken',args:[address]})));
+      const nativeLaunch=launch.exists&&launch.pairToken.toLowerCase()===zeroAddress,market=nativeLaunch?await protocol.marketState(address):{};
+      const[info,list]=await Promise.allSettled([explorer(`/tokens/${address}`),explorer(`/tokens/${address}/holders`)]);const holders=list.status==='fulfilled'&&Array.isArray(list.value.items)?list.value.items.map(item=>({address:item.address?.hash,balance:String(item.value)})).filter(item=>isAddress(item.address||'',{strict:false})):[];
+      const checkedAt=new Date(now()).toISOString(),price=market.price??null,data={address,name,symbol,chainId:4663,checkedAt,currency:'ETH',price,reserve:market.reserve??null,progress:market.progress??null,graduated:market.graduated??null,phase:market.phase??null,pool:market.pool??null,readyToGraduate:market.readyToGraduate??false,tradeable:!!nativeLaunch&&[0,2].includes(launch.phase)&&!(launch.phase===0&&market.readyToGraduate),buyTaxBps:market.buyTaxBps??null,sellTaxBps:market.sellTaxBps??null,holdersCount:info.status==='fulfilled'&&info.value.holders_count!=null?Number(info.value.holders_count):null,totalSupply:String(totalSupply),decimals:Number(decimals),holders,holderDataAvailable:list.status==='fulfilled',marketCap:price===null?null:String(Number(price)*Number(formatUnits(totalSupply,Number(decimals)))),volume:null,source};
       await store.change('market',records=>{const index=records.findIndex(item=>item.address===key),next={address:key,fetchedAt:now(),data};if(index<0)records.push(next);else records[index]=next;if(records.length>200)records.splice(0,records.length-200);});
-      await store.change('observations',records=>{const latest=records.filter(item=>item.address===key).at(-1);if(!latest||now()-Date.parse(latest.checkedAt)>=60000)records.push({address:key,checkedAt,price:null,holdersCount:data.holdersCount,source:data.source});const cutoff=now()-7*86400000;for(let i=records.length-1;i>=0;i--)if(Date.parse(records[i].checkedAt)<cutoff)records.splice(i,1);if(records.length>50000)records.splice(0,records.length-50000);});return data;
+      await store.change('observations',records=>{const latest=records.filter(item=>item.address===key).at(-1);if(!latest||now()-Date.parse(latest.checkedAt)>=60000)records.push({address:key,checkedAt,price,holdersCount:data.holdersCount,graduated:data.graduated,source});const cutoff=now()-7*86400000;for(let i=records.length-1;i>=0;i--)if(Date.parse(records[i].checkedAt)<cutoff)records.splice(i,1);if(records.length>50000)records.splice(0,records.length-50000);});return data;
     })().finally(()=>pending.delete(key));pending.set(key,work);return work;
   }
-  function history(address){return store.read('observations').filter(item=>item.address===address.toLowerCase()&&item.source==='Robinhood RPC + Blockscout').slice(-500);}
-  return {feed,details,history,trades};
+  async function trades(token){
+    const key=token.toLowerCase(),cached=tradeCache.get(key);if(cached&&now()-cached.fetchedAt<30000)return cached;
+    try{const launch=await protocol.nativeRecord(token),requests=[recentLogs({address:launch.curve,events:curveAbi.filter(e=>e.type==='event')})];if(launch.phase===2){await protocol.verify(['manager']);requests.push(recentLogs({address:PONS.manager.address,event:swapEvent,args:{id:poolId(poolKey(launch,PONS.hook.address))}}));}const pages=await Promise.all(requests),logs=pages.flatMap(p=>p.logs).sort((a,b)=>Number(b.blockNumber-a.blockNumber)||Number(b.logIndex-a.logIndex)).slice(0,60);
+      const items=await Promise.all(logs.map(async log=>{let kind,amount,value,wallet;if(log.eventName==='CurveBuy'){kind='buy';amount=log.args.tokensOut;value=log.args.quoteIn;wallet=log.args.buyer;}else if(log.eventName==='CurveSell'){kind='sell';amount=log.args.tokensIn;value=log.args.quoteOut;wallet=log.args.seller;}else{kind=log.args.amount0<0n?'buy':'sell';amount=log.args.amount1<0n?-log.args.amount1:log.args.amount1;value=log.args.amount0<0n?-log.args.amount0:log.args.amount0;wallet=log.args.sender;}return{kind,amount:formatUnits(amount,18),value:formatUnits(value,18),price:amount?String(Number(value)/Number(amount)):null,wallet,checkedAt:await timestamp(log.blockNumber),transactionHash:log.transactionHash,poolTrade:log.eventName==='Swap'};}));
+      const result={items,available:true,fetchedAt:now(),partial:pages.some(p=>p.partial),fromBlock:pages[0].fromBlock,toBlock:pages[0].toBlock,scope:'Latest 60 trades within 20,000 blocks. Curve prices are execution prices including fees; pool amounts exclude hook fees. Pool sender may be a router.'};tradeCache.set(key,result);if(tradeCache.size>200)tradeCache.delete(tradeCache.keys().next().value);return result;
+    }catch{return{items:[],available:false,scope:'Recent verified trade events are unavailable for this token.'};}
+  }
+  function history(address){return store.read('observations').filter(item=>item.address===address.toLowerCase()&&item.source===source).slice(-500);}
+  return{feed,details,history,trades};
 }

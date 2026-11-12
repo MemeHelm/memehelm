@@ -13,7 +13,9 @@
     "contracts:build": "node scripts/compile-contracts.mjs",
     "contracts:test": "node scripts/test-foundry.mjs",
     "test": "node --test --test-isolation=none --test-concurrency=1 test/*.test.mjs",
-    "check": "pnpm contracts:build && pnpm test && pnpm build"
+    "check": "pnpm contracts:build && pnpm test && pnpm build",
+    "verify:fork": "node scripts/verify-pons-fork.mjs",
+    "verify:mainnet": "node scripts/verify-pons-mainnet.mjs"
   },
   "dependencies": {
     "react": "^19.2.0",

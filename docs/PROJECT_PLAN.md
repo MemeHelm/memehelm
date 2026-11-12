@@ -1,16 +1,9 @@
-# MemeHelm product plan
+# Selected product plan
 
-Updated 2026-11-12. Build an independent English-language token creation and AI operations workspace on Robinhood Chain. The user removed third-party launchpad dependence and deferred public hosting.
+Updated 2026-11-12. User-approved target: **pons v2 on Robinhood mainnet 4663**, English-speaking creators, local completion before hosting. No testnet product, Flap, cross-chain issuance or autonomous market making. A user’s wallet signs every financial transaction.
 
-| Stage | Scope | Evidence needed |
-| --- | --- | --- |
-| Local independent foundation | Fixed-supply issuance, immutable revenue splitter, wallet workspaces, discovery, holder monitoring, AI drafts | Passing contract, API ownership and UI checks; real provider access restored |
-| Public testnet verification | Wallet-signed factory deployment, issuance, initial deposit and payouts | Explorer receipts and balances connecting creator, token, vault and fixed recipients |
-| Trading mechanism | Separately designed liquidity/pool or sale mechanism, price/trade indexing and explicit fees | User-visible economics, simulation and actual testnet trading evidence; no invented liquidity |
-| Assisted operations | Richer token context, social account authorization, reviewed scheduling/publishing | Authenticated account integration, explicit publication control and actual delivery receipts |
-| Bounded automation | Dedicated limited-budget strategies and transparent receipts | Separate strategy contracts/permissions, adversarial tests, review and appropriately scoped audit |
-| Hosted release | HTTPS, production sessions, abuse protection, monitoring, durable backups/indexing | Deployment environment from the user and operational recovery checks |
+Implemented scope: creator-led token issuance, curve and Uniswap v4 trading, optional fixed ETH revenue split with escrow claiming, discovery and native-ETH market data, opt-in creator pages, AI writing/planning profiles and private history, observed watchlist alerts.
 
-No audit is purchased during local development. Reserve allocations are user-selected accounting destinations, not certification or automatic audit payments. Mainnet, paid services and real-money execution need a separately reviewed release and appropriate authorization.
+The local mainnet-fork checks cover issuance through trading/graduation and escrow-to-split payouts. They do not constitute an audit or a real mainnet deployment. The configured AI provider currently rejects generation. Public hosting and real wallet interaction require the user’s environment/wallet and remain outstanding.
 
-Existing local work contains no automatic trading revenue. A fixed-supply token and its vault alone cannot fund an audit without actual deposited income. Protocol fees, platform charges, liquidity and reserve allocations must be explained separately before introducing them.
+Pons documentation describes whitelist-gated launches. Live canLaunch reads on 2026-11-12 returned true for the queried ordinary address. Neither a documentation assumption nor another address’s permission is used to authorize a user: the app queries the connected wallet before every preparation. Fees, config availability and economics pins are read live.
