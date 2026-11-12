@@ -1,7 +1,10 @@
 # Third-party notices
 
-The retained source snapshots in `contracts/lib/openzeppelin-contracts`, `contracts/lib/openzeppelin-contracts-upgradeable` and `contracts/lib/forge-std` retain their original license and copyright files. The independent MemeHelm contracts use OpenZeppelin ERC20 and ReentrancyGuard; Foundry tests use forge-std. These libraries are third-party work.
+The active Solidity dependencies are minimal source subsets, with their original licenses and source copyright headers preserved:
 
-The snapshots originally arrived with an earlier example archive; canonical Flap interfaces and base contracts have now been removed from application source and are not runtime dependencies.
+- OpenZeppelin Contracts 4.9.6: only contracts/security/ReentrancyGuard.sol, used by the fixed revenue vault. The original MIT license is retained at contracts/lib/openzeppelin-contracts/LICENSE.
+- Forge Standard Library 1.14.0: only Test.sol and its transitive source imports, used by local contract tests. The original MIT and Apache-2.0 licenses are retained at contracts/lib/forge-std/LICENSE-MIT and LICENSE-APACHE. StdChains.sol has been locally adjusted to omit unused default network registrations. This subset is not an unchanged full upstream distribution.
 
-JavaScript package licenses remain in installed packages and the lockfile. Optional Foundry tools under ignored `vendor/` originate from the official Foundry release and are not browser assets. The historical internal review is not an independent audit of the current contracts.
+Unused contract modules, dependency copies, test fixtures and upgradeable contract packages are not included. The retained dependencies are third-party work, not project-authored libraries.
+
+JavaScript package licenses remain in the installed packages and lockfile. Optional Foundry tools in the ignored vendor directory originate from the official Foundry release and are not browser assets.

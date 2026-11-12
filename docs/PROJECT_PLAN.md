@@ -1,6 +1,6 @@
 # Selected product plan
 
-Updated 2026-11-12. User-approved target: **pons v2 on Robinhood mainnet 4663**, English-speaking creators, local completion before hosting. No testnet product, Flap, cross-chain issuance or autonomous market making. A user’s wallet signs every financial transaction.
+Updated 2026-11-12. User-approved target: **pons v2 on Robinhood mainnet 4663**, English-speaking creators, local completion before hosting. No testnet product, cross-chain issuance or autonomous market making. A user’s wallet signs every financial transaction.
 
 Implemented scope: creator-led token issuance, curve and Uniswap v4 trading, optional fixed ETH revenue split with escrow claiming, discovery and native-ETH market data, opt-in creator pages, AI writing/planning profiles and private history, observed watchlist alerts.
 

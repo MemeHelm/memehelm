@@ -12,11 +12,7 @@ export function compileContracts(extraSources = {}) {
     language: 'Solidity', sources,
     settings: { optimizer: { enabled: true, runs: 200 }, evmVersion: 'shanghai', outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object', 'evm.deployedBytecode.object'] } } },
   }), { import(path) {
-    let file = path.startsWith('@openzeppelin-contracts-upgradeable/')
-      ? resolve(root, 'contracts/lib/openzeppelin-contracts-upgradeable/contracts', path.slice('@openzeppelin-contracts-upgradeable/'.length))
-      : path.startsWith('@openzeppelin-upgradeable/')
-      ? resolve(root, 'contracts/lib/openzeppelin-contracts-upgradeable/contracts', path.slice('@openzeppelin-upgradeable/'.length))
-      : path.startsWith('@openzeppelin/')
+    const file = path.startsWith('@openzeppelin/')
         ? resolve(root, 'contracts/lib/openzeppelin-contracts/contracts', path.slice('@openzeppelin/'.length))
         : resolve(root, 'contracts', path);
     return existsSync(file) ? { contents: readFileSync(file, 'utf8') } : { error: `Missing Solidity import: ${path}` };
