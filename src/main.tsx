@@ -35,7 +35,7 @@ function App(){return <WalletSession>{(wallet,connect,logout,signing)=><Workspac
 function Workspace({wallet,connect,logout,signing}:{wallet:string;connect:()=>Promise<void>;logout:()=>Promise<void>;signing:boolean}){
  const [page,setPage]=useState<Page>(initialPage),[menu,setMenu]=useState(false),[projects,setProjects]=useState<Project[]>([]),[status,setStatus]=useState<WorkspaceStatus|null>(null),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(''),[selected,setSelected]=useState(''),[snapshot,setSnapshot]=useState<Snapshot|null>(null),[chainError,setChainError]=useState(''),[importing,setImporting]=useState(false),[copyState,setCopyState]=useState('');
  const active=projects.find(p=>p.id===selected)||projects[0];
- async function reload(){const list=await api<Project[]>('/projects');setProjects(list);return list;}
+ async function reload(){const list=await api<Project[]>('/projects');setProjects(list);const returnedProject=new URLSearchParams(location.search).get('community');if(returnedProject&&list.some(project=>project.id===returnedProject))setSelected(returnedProject);return list;}
  async function refreshStatus(){try{setStatus(await api<WorkspaceStatus>('/status'));}catch(e:any){setError(e.message);}}
  useEffect(()=>{if(wallet)reload().catch(e=>setError(e.message));refreshStatus();},[]);
 

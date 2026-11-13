@@ -20,7 +20,7 @@ The current release runs locally. Hosting is deferred until the user supplies an
 
 ## Capabilities and Constraints
 
-Existing launch, trading, fixed ETH split, project-page publication, watchlist, writing and editing flows remain. Operations adds persistent project memory, bounded observations, proposed task/update actions, explicit approval, task outcomes, an activity journal and a persistent daily request allowance. Observation and scheduled AI reviews are separately opt-in; new projects are paused. Actual social publishing integrations are not connected. No autonomous market making, cross-chain issuance, signing key custody or automatic financial execution is included.
+Existing launch, trading, fixed ETH split, project-page publication, watchlist, writing and editing flows remain. Operations adds persistent project memory, bounded observations, proposed task/update actions, explicit approval, task outcomes, an activity journal and a persistent daily request allowance. Observation and scheduled AI reviews are separately opt-in; new projects are paused. Community adds shared social links, event invitations, authenticated registration, attendance and creator recaps. X OAuth and reviewed publishing are implemented with encrypted server-side tokens, but require application credentials and real-account acceptance; no automatic social posting is provided. Discord/Telegram are community entry links. No autonomous market making, cross-chain issuance, signing key custody or automatic financial execution is included.
 
 ## Brand Commitments
 

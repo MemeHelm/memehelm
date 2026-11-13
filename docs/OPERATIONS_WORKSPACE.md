@@ -21,7 +21,7 @@ The desktop and tokens are unchanged. Small containers stack queue and detail, g
 
 ## External limits
 
-X/Telegram account integration and external publishing are not connected. Actions currently execute as project-page updates and recorded community tasks. Social reactions are not ingested automatically. Memory and outcomes supply the next review's context, but no model weight training is claimed. Market coverage follows the existing observed data; holder availability still depends on its source. Mainnet signing, public hosting and independent audit remain outside local acceptance.
+The subsequent community extension implements X OAuth and reviewed external publication, pending application credentials and real-account acceptance. It also adds social entry links, events, registrations and outcomes; see COMMUNITY_WORKSPACE.md. Operations proposals still execute as project-page updates and recorded tasks; X publication is a separate explicit action, not an AI tool or scheduled task. X reactions are read only on request, and Discord/Telegram messages are not ingested. Memory, events and recorded outcomes supply the next review's context, but no model weight training is claimed. Market coverage follows the existing observed data; holder availability still depends on its source. Mainnet signing, public hosting and independent audit remain outside local acceptance.
 
 ## Verification
 

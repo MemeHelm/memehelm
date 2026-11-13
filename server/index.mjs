@@ -14,6 +14,8 @@ import {createAuth} from './auth.mjs';
 import {createMarket} from './market.mjs';
 import {createMonitor} from './monitor.mjs';
 import {createOperations} from './operations.mjs';
+import {createCommunity} from './community.mjs';
+import {createXSocial} from './social-x.mjs';
 import {createWorkspaceStore} from './workspace.mjs';
 import {imageLink,projectLink,publicProject} from '../shared/project.mjs';
 const root = fileURLToPath(new URL('../',import.meta.url));
@@ -31,7 +33,10 @@ function reserveAIRequest(owner){
   times.push(Date.now());aiRequests.set(owner,times);
 }
 async function withAI(owner,work){if(aiInFlight.has(owner))throw Object.assign(new Error('An AI request is already running for your wallet.'),{status:429});reserveAIRequest(owner);aiInFlight.add(owner);try{return await work();}finally{aiInFlight.delete(owner);}}
-const operations=createOperations(workspace,{observe:project=>market.observe(project.tokenAddress),generate:generateCopilot,withAI,configured:aiConfigured});
+const community=createCommunity(workspace),social=createXSocial(workspace,{origin:auth.origin});
+const operations=createOperations(workspace,{observe:project=>market.observe(project.tokenAddress),generate:generateCopilot,withAI,configured:aiConfigured,communityContext:project=>({community:community.context(project),xPosts:social.context(project)})});
+const flowCookie=req=>String(req.headers.cookie||'').split(';').map(value=>value.trim()).find(value=>value.startsWith('mh_x_flow='))?.slice(10)||'';
+function setFlowCookie(res,value){res.setHeader('Set-Cookie',`mh_x_flow=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${value?600:0}${auth.origin.startsWith('https:')?'; Secure':''}`);}
 async function body(req,limit=20000) { req.setEncoding('utf8');let content='';for await(const chunk of req){content+=chunk;if(Buffer.byteLength(content)>limit)throw new Error('Request is too large.');}return content?JSON.parse(content):{}; }
 function address(value,optional=false) { if(optional&&!value)return null;if(typeof value!=='string'||!isAddress(value,{strict:false})||value.toLowerCase()===zeroAddress)throw new Error('A valid nonzero EVM address is required.');return getAddress(value.toLowerCase()); }
 function json(res,status,data){res.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data,(_,value)=>typeof value==='bigint'?String(value):value));}
@@ -47,6 +52,10 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='POST'&&path==='/api/auth/challenge')return json(res,200,auth.challenge(req,res,(await body(req)).address));
     if(req.method==='POST'&&path==='/api/auth/verify')return json(res,200,await auth.verify(req,res,await body(req)));
     if(req.method==='POST'&&path==='/api/auth/logout')return json(res,200,auth.logout(req,res));
+    if(req.method==='GET'&&path==='/api/social/x/callback'){
+      let result;try{result=await social.callback(new URL(req.url,auth.origin).searchParams,flowCookie(req));}catch{result={ok:false};}
+      res.writeHead(303,{'Location':`${auth.origin}/?community=${result.projectId||''}&x=${result.ok?'connected':'failed'}#app/copilot`,'Cache-Control':'no-store','Referrer-Policy':'no-referrer'});return res.end();
+    }
     const publicApi=req.method==='GET'&&(path==='/api/status'||path==='/api/launch/options'||path.startsWith('/api/artifacts/')||path.startsWith('/api/public/')||path.startsWith('/api/market/'));
     if(path.startsWith('/api/')&&!publicApi&&!context.getStore()?.owner)return json(res,401,{error:'Sign in with your wallet to open your private workspace.'});
     const owner=context.getStore()?.owner;
@@ -76,6 +85,27 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='GET'&&path==='/api/status')return json(res,200,{network:NETWORK,chain:await chainStatus(),aiConfigured:aiConfigured(),factory:PONS.factory.address,mode:'mainnet',auditStatus:'unaudited'});
     if(req.method==='GET'&&path.startsWith('/api/artifacts/'))return json(res,200,await artifact(path.split('/').pop()));
     if(req.method==='GET'&&path==='/api/projects')return json(res,200,await projects());
+    const communityPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/community(?:\/(links|events|x)(?:\/([a-f0-9-]+|connect|finish|disconnect)(?:\/(attendees|metrics))?)?)?$/);
+    if(communityPath){
+      const project=await findProject(communityPath[1]),section=communityPath[2],id=communityPath[3];
+      if(req.method==='GET'&&!section)return json(res,200,{...community.get(project),social:social.get(project),drafts:(await workspace.activity(project.id)).filter(item=>item.kind==='post').map(({id,title,content})=>({id,title,content}))});
+      if(req.method==='GET'&&section==='events'&&id&&communityPath[4]==='attendees')return json(res,200,community.attendees(project,id));
+      if(req.method==='POST'){
+        const input=await body(req,40000);
+        if(section==='links')return json(res,200,await community.saveLinks(project,input));
+        if(section==='events')return json(res,200,await community.changeEvent(project,id,input));
+        if(section==='x'){
+          if(id==='connect'){const flow=social.start(project);setFlowCookie(res,flow.binding);return json(res,200,{url:flow.url});}
+          if(id==='finish'){const result=await social.finish(project,flowCookie(req));setFlowCookie(res,'');return json(res,200,result);}
+          if(id==='disconnect'){const result=await social.disconnect(project);setFlowCookie(res,'');return json(res,200,result);}
+          if(communityPath[4]==='metrics')return json(res,200,await social.metrics(project,id));
+          if(input.action==='publish')return json(res,200,await social.publish(project,id,input));
+          return json(res,200,await social.save(project,id,input));
+        }
+      }
+    }
+    const rsvpPath=path.match(/^\/api\/public\/projects\/([a-f0-9-]+)\/events\/([a-f0-9-]+)\/rsvp$/);
+    if(req.method==='POST'&&rsvpPath){const project=(await allProjects()).find(item=>item.id===rsvpPath[1]&&item.published&&item.tokenAddress);if(!project)return json(res,404,{error:'This project page is not available.'});return json(res,200,await community.rsvp(project,rsvpPath[2],owner,await body(req)));}
     const operationsPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/operations(?:\/(memory|settings|check|run|actions)(?:\/([a-f0-9-]+))?)?$/);
     if(operationsPath){const project=await findProject(operationsPath[1]),section=operationsPath[2];if(req.method==='GET'&&!section)return json(res,200,operations.get(project));if(req.method==='POST'){const input=await body(req,100000);if(section==='memory')return json(res,200,await operations.memory(project,input));if(section==='settings')return json(res,200,await operations.settings(project,input));if(section==='check')return json(res,200,await operations.check(project));if(section==='run')return json(res,200,await operations.run(project,{requestId:input.requestId}));if(section==='actions')return json(res,200,operationsPath[3]?await operations.action(project,operationsPath[3],input):await operations.add(project,input));}}
     if(req.method==='POST'&&path==='/api/projects'){
@@ -112,7 +142,7 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     const publishPagePath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/publication$/);
     if(req.method==='POST'&&publishPagePath){const project=await findProject(publishPagePath[1]),input=await body(req);if(typeof input.published!=='boolean')throw new Error('Choose whether to publish your project.');if(input.published){if(!project.tokenAddress)throw new Error('Launch or import an onchain token before publishing its page.');await verifyChain();const code=await publicClient.getCode({address:project.tokenAddress});if(!code||code==='0x')throw new Error('This token could not be verified on Robinhood Chain.');let tokenInfo;try{tokenInfo=await Promise.all(['symbol','decimals','totalSupply'].map(functionName=>publicClient.readContract({address:project.tokenAddress,abi:erc20Abi,functionName})));}catch{throw new Error('This address could not be verified as a token on Robinhood Chain.');}if(String(tokenInfo[0]).toUpperCase()!==project.symbol.toUpperCase())throw new Error('The project symbol does not match the onchain token. Import the correct token details.');const launch=await pons.launchRecord(project.tokenAddress);if(launch.deployer.toLowerCase()!==owner)throw new Error('Only the verified creating wallet can publish this project. Imported tokens can still be tracked privately.');}return json(res,200,await mutate(list=>{const record=list.find(item=>item.id===project.id);record.published=input.published;if(input.published)record.publishedAt=new Date().toISOString();return record;}));}
     const publicPath=path.match(/^\/api\/public\/projects\/([a-f0-9-]+)(\/snapshot)?$/);
-    if(req.method==='GET'&&publicPath){const project=(await allProjects()).find(item=>item.id===publicPath[1]&&item.published&&item.tokenAddress);if(!project)return json(res,404,{error:'This project page is not available.'});if(publicPath[2])return json(res,200,await snapshot(project));return json(res,200,{project:publicProject(project),activity:(await workspace.activity(project.id,{publicOnly:true})).map(({id,kind,title,content,createdAt,updatedAt,transactionHash})=>({id,kind,title,content,createdAt,updatedAt,transactionHash}))});}
+    if(req.method==='GET'&&publicPath){const project=(await allProjects()).find(item=>item.id===publicPath[1]&&item.published&&item.tokenAddress);if(!project)return json(res,404,{error:'This project page is not available.'});if(publicPath[2])return json(res,200,await snapshot(project));return json(res,200,{project:publicProject(project),community:community.publicView(project,owner),activity:(await workspace.activity(project.id,{publicOnly:true})).map(({id,kind,title,content,createdAt,updatedAt,transactionHash})=>({id,kind,title,content,createdAt,updatedAt,transactionHash}))});}
     const snapshotPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/snapshot$/);
     if(req.method==='GET'&&snapshotPath)return json(res,200,await snapshot(await findProject(snapshotPath[1])));
     const assistantPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/assistant$/);
