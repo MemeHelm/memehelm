@@ -100,6 +100,8 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
           if(id==='disconnect'){const result=await social.disconnect(project);setFlowCookie(res,'');return json(res,200,result);}
           if(communityPath[4]==='metrics')return json(res,200,await social.metrics(project,id));
           if(input.action==='publish')return json(res,200,await social.publish(project,id,input));
+          if(input.action==='record')return json(res,200,await social.record(project,id,input));
+          if(input.action==='report')return json(res,200,await social.report(project,id,input));
           return json(res,200,await social.save(project,id,input));
         }
       }

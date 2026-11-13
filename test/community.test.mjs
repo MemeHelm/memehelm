@@ -7,6 +7,7 @@ import {once} from 'node:events';
 import {createWorkspaceStore} from '../server/workspace.mjs';
 import {createCommunity} from '../server/community.mjs';
 import {createXSocial} from '../server/social-x.mjs';
+import {xPostLink} from '../server/social-manual.mjs';
 import {createOperations} from '../server/operations.mjs';
 import {signedClient,testWallet} from './helpers/auth.mjs';
 
@@ -101,6 +102,60 @@ test('community HTTP APIs isolate owners, protect registrations and complete X c
    response=await nativeFetch(endpoint+'/api/social/x/callback?'+new URLSearchParams({state:stateParam,code:'fixture-code'}),{headers:{cookie:flowCookie},redirect:'manual'});assert.equal(response.status,303);assert.ok(!response.headers.get('location').includes('fixture-code'));
    assert.equal((await bob.post(path+'/x/finish',{})).status,404);
    response=await alice.request(endpoint+'/api'+path+'/x/finish',{method:'POST',headers:{'content-type':'application/json',origin:'http://127.0.0.1:4318',cookie:alice.cookie+'; '+flowCookie},body:'{}'});assert.equal(response.status,200);assert.equal((await response.json()).account.username,'orbit_test');assert.equal(mock.posts,0);
+   response=await alice.post(path+'/x',{text:'Private manually published draft.'});let post=(await response.json()).posts[0];
+   const recorded={action:'record',revision:post.revision,url:'https://x.com/orbit_test/status/54321',confirm:true};
+   assert.equal((await bob.post(path+'/x/'+post.id,recorded)).status,404);
+   assert.equal((await alice.post(path+'/x/'+post.id,recorded,'https://attacker.example')).status,400);
+   response=await alice.post(path+'/x/'+post.id,recorded);assert.equal(response.status,200);post=(await response.json()).posts[0];assert.equal(post.status,'recorded');
+   response=await alice.post(path+'/x/'+post.id,{action:'report',revision:post.revision,observedAt:new Date().toISOString(),counts:{likes:0},notes:'Creator observation.'});assert.equal(response.status,200);assert.equal((await response.json()).posts[0].manualReports[0].counts.likes,0);
+   const publicAfter=JSON.stringify(await (await nativeFetch(endpoint+`/api/public/projects/${project.id}`)).json());assert.ok(!publicAfter.includes('54321')&&!publicAfter.includes('Creator observation.'));
    assert.equal((await alice.post(path+'/links',{revision:0,share:true,links:{}},'https://attacker.example')).status,400);
  }finally{globalThis.fetch=nativeFetch;process.env=environment;if(server){server.close();server.closeAllConnections();}}
+}));
+
+test('manual X links accept only exact HTTPS post hosts and strip tracking',()=>{
+ assert.deepEqual(xPostLink('https://twitter.com/orbit_test/status/12345?s=20#reply'),{postId:'12345',url:'https://x.com/orbit_test/status/12345'});
+ assert.equal(xPostLink('https://www.x.com/i/web/status/12345').url,'https://x.com/i/web/status/12345');
+ for(const value of ['javascript:alert(1)','http://x.com/a/status/1','https://x.com.evil.example/a/status/1','https://x.com@evil.example/a/status/1','https://name@x.com/a/status/1','https://x.com:8443/a/status/1','https://x.com/a','https://x.com/a/status/abc','https://x.com/a/status/1/more'])assert.throws(()=>xPostLink(value));
+});
+
+test('manual X archive works offline, keeps provenance and survives reopening',()=>fixture(async({store,project,directory})=>{
+ const time=Date.now();let calls=0;const options={origin:'http://127.0.0.1:4318',clientId:'',clientSecret:'',encryptionKey:'',now:()=>time,fetcher:async()=>{calls++;throw new Error('Unexpected external request.');}},social=createXSocial(store,options);
+ let post=(await social.save(project,null,{text:'A saved draft, not verified published text.'})).posts[0];
+ const input={revision:0,url:'https://twitter.com/orbit_test/status/12345?s=20',confirm:true,notes:'Published myself.'};
+ await assert.rejects(()=>social.record(project,post.id,{...input,confirm:false}),/Confirm/);
+ await assert.rejects(()=>social.record({...project,owner:'someone-else'},post.id,input),error=>error.status===404);
+ post=(await social.record(project,post.id,input)).posts[0];assert.equal(post.status,'recorded');assert.equal(post.receipt,undefined);assert.equal(post.manualPublication.publishedAt,null);assert.equal(post.manualPublication.source,'creator');
+ await assert.rejects(()=>social.record(project,post.id,input),error=>error.status===409);
+ await assert.rejects(()=>social.save(project,post.id,{action:'edit',revision:post.revision,text:'Changed draft'}),/no longer/);
+ post=(await social.report(project,post.id,{revision:post.revision,observedAt:iso(time),counts:{likes:0,replies:2},notes:'Two useful questions.'})).posts[0];
+ assert.equal(post.manualReports[0].counts.likes,0);assert.equal(post.manualReports[0].counts.views,null);assert.equal(post.manualReports[0].verification,'unverified');
+ const context=social.context(project)[0];assert.equal(context.publicationVerified,false);assert.equal(context.publicMetrics,null);assert.equal(context.creatorReportedResults[0].counts.replies,2);
+ const operations=createOperations(store,{communityContext:()=>({xPosts:social.context(project)})});assert.equal((await operations.context(project)).community.xPosts[0].creatorReportedResults[0].notes,'Two useful questions.');
+ assert.equal(createXSocial(createWorkspaceStore(directory),options).get(project).posts[0].manualReports[0].counts.likes,0);assert.equal(calls,0);
+}));
+const iso=time=>new Date(time).toISOString();
+
+test('manual results reject invalid counts and dates, preserve unknowns and original post attribution',()=>fixture(async({store,project})=>{
+ const time=Date.now(),social=createXSocial(store,{origin:'http://localhost',clientId:'',now:()=>time});let post=(await social.save(project,null,{text:'A test draft.'})).posts[0];
+ await assert.rejects(()=>social.report(project,post.id,{revision:0,observedAt:iso(time),counts:{likes:1}}),/link/);
+ await assert.rejects(()=>social.record(project,post.id,{revision:0,url:'https://x.com/test/status/1',confirm:true,publishedAt:iso(time+3600000)}),/future/);
+ post=(await social.record(project,post.id,{revision:0,url:'https://x.com/test/status/1',confirm:true,publishedAt:iso(time-3600000)})).posts[0];
+ for(const value of [-1,1.2,'5',Infinity,Number.MAX_SAFE_INTEGER+1])await assert.rejects(()=>social.report(project,post.id,{revision:post.revision,observedAt:iso(time),counts:{likes:value}}),/whole numbers/);
+ for(const value of ['',iso(time+3600000),iso(time-7200000)])await assert.rejects(()=>social.report(project,post.id,{revision:post.revision,observedAt:value,counts:{likes:1}}));
+ await assert.rejects(()=>social.report(project,post.id,{revision:post.revision,observedAt:iso(time),counts:{likes:null}}),/at least/);
+ post=(await social.report(project,post.id,{revision:post.revision,observedAt:iso(time),counts:{likes:5}})).posts[0];
+ await assert.rejects(()=>social.report(project,post.id,{revision:1,observedAt:iso(time),notes:'Stale record'}),error=>error.status===409);
+ post=(await social.record(project,post.id,{revision:post.revision,url:'https://x.com/test/status/2',confirm:true})).posts[0];assert.equal(post.manualReports[0].postId,'1');assert.equal(post.publicationHistory[0].postId,'1');assert.equal(social.context(project)[0].creatorReportedResults.length,0);
+ const other=(await social.save(project,null,{text:'Another draft.'})).posts[0];await assert.rejects(()=>social.record(project,other.id,{revision:0,url:'https://x.com/another/status/2',confirm:true}),/already recorded/);
+ for(let n=0;n<32;n++){post=(await social.report(project,post.id,{revision:post.revision,observedAt:iso(time),notes:'Snapshot '+n})).posts.find(item=>item.id===post.id);}
+ assert.equal(post.manualReports.length,30);assert.equal(post.manualReports[0].notes,'Snapshot 31');
+}));
+
+test('manual reconciliation prevents resending and never replaces a confirmed API receipt',()=>fixture(async({store,project})=>{
+ const mock=provider(),social=socialFor(store,mock);await connect(social,project);let post=(await social.save(project,null,{text:'A post with uncertain delivery.'})).posts[0];post=(await social.save(project,post.id,{action:'approve',revision:0})).posts[0];mock.mode='timeout';await assert.rejects(()=>social.publish(project,post.id,{revision:post.revision,confirm:true}));post=social.get(project).posts[0];
+ post=(await social.record(project,post.id,{revision:post.revision,url:'https://x.com/orbit_test/status/54321',confirm:true})).posts[0];assert.equal(post.status,'recorded');await assert.rejects(()=>social.publish(project,post.id,{revision:post.revision,confirm:true}));assert.equal(mock.posts,1);
+ mock.mode='success';post=(await social.save(project,null,{text:'A confirmed API post.'})).posts[0];post=(await social.save(project,post.id,{action:'approve',revision:0})).posts[0];post=(await social.publish(project,post.id,{revision:post.revision,confirm:true})).posts[0];
+ await assert.rejects(()=>social.record(project,post.id,{revision:post.revision,url:'https://x.com/test/status/2',confirm:true}),/receipt/);
+ post=(await social.report(project,post.id,{revision:post.revision,observedAt:iso(Date.now()),notes:'Manually observed feedback.'})).posts[0];assert.equal(post.receipt.id,'98765');assert.equal(post.manualReports[0].postId,'98765');assert.equal(social.context(project)[0].publicationVerified,true);assert.equal(mock.posts,2);
 }));
