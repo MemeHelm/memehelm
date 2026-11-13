@@ -1,3 +1,4 @@
+// Run the local MemeHelm backend and frontend together.
 import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 const commands = [

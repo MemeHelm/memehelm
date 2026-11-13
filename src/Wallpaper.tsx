@@ -1,3 +1,4 @@
+// Decorative MemeHelm desktop background; scoped SVG IDs allow multiple instances.
 import {useId} from 'react';
 import {HelmMark} from './Brand';
 import './wallpaper.css';

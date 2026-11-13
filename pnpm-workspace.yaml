@@ -1,3 +1,4 @@
+# Package-manager policy for the MemeHelm workspace.
 minimumReleaseAgeExclude:
   - viem@2.57.7
 storeDir: ../.pnpm-store

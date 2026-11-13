@@ -1,4 +1,4 @@
-/* MemeHelm palette. The desktop metaphor is independent of the brand colors. */
+/* MemeHelm brand tokens: graphite surfaces, cold-white text and citron accents. */
 :root{
   color-scheme:dark;
   --mh-bg:#090b0c;

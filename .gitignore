@@ -1,3 +1,4 @@
+# Keep credentials, private workspace data and generated files out of Git.
 node_modules/
 dist/
 vendor/

@@ -1,3 +1,4 @@
+// Skippable MemeHelm brand entrance with reduced-motion support.
 import {useEffect,useRef,useState} from 'react';
 import {Arrow,HelmMark} from './Brand';
 
