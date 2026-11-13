@@ -52,10 +52,11 @@ test('browser API aborts stalled headers and response bodies and permits retry',
  const dir=await temporary(),originalFetch=globalThis.fetch;let server;
  try{
   const compiled=ts.transpileModule(await readFile('src/api.ts','utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;await writeFile(resolve(dir,'api.mjs'),compiled);const{api}=await import(pathToFileURL(resolve(dir,'api.mjs')).href);
-  const seen=[];server=createServer((req,res)=>{seen.push(req.url);if(req.url==='/api/body'){res.writeHead(200,{'content-type':'application/json'});res.write('{"pending":');return;}if(req.url==='/api/headers')return;res.writeHead(200,{'content-type':'application/json'});res.end('{"ok":true}');});server.listen(0,'127.0.0.1');await once(server,'listening');const endpoint=`http://127.0.0.1:${server.address().port}`;
+  const seen=[];server=createServer((req,res)=>{seen.push(req.url);if(req.url==='/api/body'){res.writeHead(200,{'content-type':'application/json'});res.write('{"pending":');return;}if(req.url==='/api/headers')return;if(req.url==='/api/conflict'){res.writeHead(409,{'content-type':'application/json'});res.end('{"error":"This draft changed in another window."}');return;}res.writeHead(200,{'content-type':'application/json'});res.end('{"ok":true}');});server.listen(0,'127.0.0.1');await once(server,'listening');const endpoint=`http://127.0.0.1:${server.address().port}`;
   globalThis.fetch=(input,options)=>originalFetch(new URL(input,endpoint),options);
   for(const path of ['/headers','/body'])await assert.rejects(()=>api(path,undefined,undefined,80),/took too long/);
   assert.ok(seen.includes('/api/body'));assert.deepEqual(await api('/ok',undefined,undefined,500),{ok:true});
+  await assert.rejects(()=>api('/conflict',undefined,undefined,500),error=>error.name==='ApiError'&&error.status===409&&/another window/.test(error.message));
   const controller=new AbortController();controller.abort();await assert.rejects(()=>api('/ok',undefined,controller.signal),e=>e.name==='AbortError');
  }finally{globalThis.fetch=originalFetch;if(server){server.close();server.closeAllConnections();}await cleanup(dir);}
 });

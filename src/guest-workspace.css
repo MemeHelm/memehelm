@@ -1,0 +1,95 @@
+/* Signed-out tools stay part of the product workspace. */
+.guest-workspace{color:#edf1f5}
+.guest-page-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:28px}
+.guest-page-heading h1{font-size:29px;line-height:36px;font-weight:600;letter-spacing:-1px;margin:0}
+.guest-page-heading p{font-size:13px;line-height:21px;color:#96a1b0;margin-top:8px;max-width:580px}
+.guest-page-heading>.button{flex:none;font-size:12px}
+.workspace-lock-icon{flex:none}
+.project-locked{border:1px solid #333c47;border-radius:9px;background:#171c23;overflow:hidden}
+.project-shelf-label{display:flex;align-items:center;gap:9px;padding:16px 22px;border-bottom:1px solid #2e3742;font-size:12px;color:#b8c3d1}
+.project-shelf-label>.app-symbol{color:#8e9eaf}
+.workspace-lock{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#8997a8}
+.project-locked-content{display:flex;flex-direction:column;align-items:center;text-align:center;padding:42px 24px 38px}
+.project-empty-symbol{position:relative;display:grid;place-items:center;width:66px;height:61px;margin-bottom:21px;color:#a7b6ca}
+.project-empty-symbol>.app-symbol{width:44px;height:44px;stroke-width:1.15}
+.project-empty-symbol>.workspace-lock-icon{position:absolute;right:4px;bottom:3px;width:21px;height:21px;padding:2px;background:#171c23;color:#d7ff00}
+.project-locked-content h2{font-size:25px;line-height:32px;letter-spacing:-.6px;font-weight:500;margin:0}
+.project-locked-content>p{font-size:13px;line-height:22px;color:#9eacbd;max-width:340px;margin:11px 0 23px}
+.project-locked-content>.button{font-size:12px;min-height:42px;padding:10px 18px}
+.project-locked-content>small{font-size:11px;line-height:18px;color:#8b9aae;margin-top:13px}
+.project-shelf-footer{display:flex;justify-content:center;align-items:center;gap:24px;padding:15px 22px;border-top:1px solid #2e3742;background:#151a20;color:#8e9eb3;font-size:11px;line-height:18px}
+.project-shelf-footer>span{display:flex;align-items:center;gap:8px}
+.project-shelf-footer>span::before{content:'';width:3px;height:3px;background:#64778f;border-radius:50%}
+.guest-help-row{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:14px;font-size:11px;color:#8c9aab}
+.guest-help-row>.text-button{font-size:11px;color:#bac8d9;min-height:36px}
+.guest-help-row>.text-button>svg{width:14px;height:14px}
+/* Revenue: a short sign-in state and optional explanation. */
+.revenue-locked{display:flex;align-items:flex-start;gap:25px;padding:36px;border:1px solid #333e4b;border-radius:9px;background:#171d25}
+.revenue-locked-icon{display:grid;place-items:center;width:62px;height:62px;border:1px solid #3d4b5d;border-radius:10px;color:#b9c7da;background:#1b2430;flex:none}
+.revenue-locked h2{font-size:26px;font-weight:500;line-height:33px;letter-spacing:-.6px;margin:0}
+.revenue-locked p{font-size:13px;line-height:22px;color:#9eacbe;max-width:400px;margin:10px 0 24px}
+.revenue-locked .button{font-size:12px}
+.guest-revenue-guide{margin-top:18px;border-bottom:1px solid #303b49}
+.guest-revenue-guide>summary{cursor:pointer;color:#a6b6cb;min-height:46px;line-height:22px;font-size:12px;padding:12px 3px;list-style-position:inside}
+.guest-revenue-guide>ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;padding:8px 0 24px;list-style:none;margin:0;counter-reset:revenue-step}
+.guest-revenue-guide li{counter-increment:revenue-step;position:relative;padding-left:27px;min-width:0}
+.guest-revenue-guide li::before{content:counter(revenue-step);position:absolute;left:0;top:2px;color:#899bb1;font-size:11px}
+.guest-revenue-guide strong{font-size:12px;line-height:20px;font-weight:500;color:#d9e3f0}
+.guest-revenue-guide p{font-size:12px;line-height:20px;color:#92a3bb;margin:7px 0 0}
+/* Copilot: the document is the main object. */
+.copilot-signin-bar{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:20px}
+.copilot-signin-bar>span{display:flex;align-items:center;gap:9px;color:#a1afc3;font-size:12px;line-height:20px}
+.copilot-signin-bar>.button{flex:none;font-size:12px}
+.copilot-sample{border:1px solid #364355;border-radius:9px;background:#171e28;overflow:hidden}
+.copilot-sample-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:0 20px;border-bottom:1px solid #354154;background:#1a222e}
+.guest-copilot .example-tabs{display:flex;gap:20px;padding:0;border:0;flex-wrap:wrap}
+.guest-copilot .example-tabs>button{min-height:51px;padding:12px 0;border-bottom:2px solid transparent;border-radius:0;color:#92a4bf;font-size:12px;background:none;white-space:nowrap}
+.guest-copilot .example-tabs>button[aria-pressed=true]{color:#f0f4fa;border-bottom-color:#d7ff00;background:none}
+.guest-copilot .example-tabs>button:hover{color:#f0f4fa}
+.sample-label{font-size:10px;line-height:17px;padding:2px 7px;border:1px solid #465970;border-radius:3px;color:#a3b4ca;flex:none}
+.copilot-sample-document{max-width:680px;margin:auto;padding:34px 35px 42px;min-height:300px}
+.sample-project{display:flex;align-items:center;gap:10px}
+.sample-project>span{width:32px;height:32px;display:grid;place-items:center;border:1px solid #4a607d;border-radius:5px;background:#253246;color:#ccdcf2;font-size:11px}
+.sample-project strong{display:block;font-size:12px;line-height:18px;font-weight:500;color:#c1d2ea}
+.sample-project small{display:block;font-size:10px;line-height:16px;color:#92a4bd}
+.copilot-sample-document h2{font-size:27px;line-height:35px;font-weight:500;letter-spacing:-.7px;margin:25px 0 17px}
+.copilot-sample-document>p{font-size:15px;line-height:27px;color:#bfcee2;white-space:pre-line;max-width:580px}
+.copilot-sample>footer{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:13px 22px;border-top:1px solid #354154;color:#8e9fb7;font-size:11px;line-height:18px}
+.copilot-sample>footer>.text-button{font-size:11px;flex:none;min-height:34px;color:#c0cee0}
+@container(max-width:650px){
+  .guest-page-heading{gap:16px;flex-wrap:wrap;margin-bottom:24px}
+  .guest-page-heading h1{font-size:27px;line-height:34px}
+  .guest-page-heading>.button{min-height:40px;padding:9px 13px}
+  .project-shelf-label{padding:14px 18px}
+  .project-locked-content{padding:34px 20px}
+  .project-locked-content h2{font-size:24px}
+  .project-shelf-footer{gap:16px;font-size:10px;padding-inline:16px}
+  .revenue-locked{padding:26px;gap:20px}
+  .revenue-locked-icon{width:48px;height:48px}
+  .revenue-locked-icon>svg{width:30px;height:30px}
+  .revenue-locked h2{font-size:24px;line-height:31px}
+  .guest-revenue-guide>ol{grid-template-columns:1fr;gap:20px}
+  .copilot-signin-bar{align-items:flex-start;flex-direction:column;gap:14px}
+  .copilot-sample-toolbar{gap:12px;padding-inline:17px}
+  .guest-copilot .example-tabs{gap:16px}
+  .guest-copilot .example-tabs>button{font-size:11px}
+  .copilot-sample-document{padding:26px 24px 32px;min-height:320px}
+  .copilot-sample-document h2{font-size:25px;line-height:33px}
+  .copilot-sample>footer{flex-direction:column;align-items:flex-start;gap:3px;padding:16px 20px}
+}
+@container(max-width:400px){
+  .guest-page-heading{gap:14px}
+  .project-shelf-label{padding:14px}
+  .workspace-lock{font-size:10px;gap:4px}
+  .project-locked-content{padding:30px 16px}
+  .project-locked-content h2{font-size:22px;line-height:29px}
+  .project-locked-content>p{font-size:12px;line-height:21px;max-width:240px}
+  .project-shelf-footer{gap:11px;padding:13px 11px;font-size:10px}
+  .project-shelf-footer>span{gap:5px}
+  .guest-help-row{flex-wrap:wrap;gap:0 8px}
+  .revenue-locked{flex-direction:column;gap:20px;padding:24px}
+  .copilot-sample-toolbar{padding-inline:14px;flex-wrap:wrap;gap:0}
+  .guest-copilot .example-tabs{gap:15px}
+  .sample-label{margin-bottom:10px}
+  .copilot-sample-document{padding:24px 20px 30px}
+}

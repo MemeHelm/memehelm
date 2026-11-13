@@ -8,7 +8,7 @@ export function fitWindow(rect,bounds){
 
 export function initialWindow(page,bounds,index=0){
   const compact=['home','guide','calculator'].includes(page);
-  const desiredWidth=page==='calculator'?490:page==='home'?820:page==='guide'?660:1060;
+  const desiredWidth=page==='calculator'?490:page==='home'?1060:page==='guide'?660:1060;
   const desiredHeight=page==='home'?790:page==='calculator'?650:page==='guide'?650:790;
   return fitWindow({x:(compact?160:138)+(index%3)*22,y:28+(index%3)*22,width:Math.min(desiredWidth,bounds.width-180),height:Math.min(desiredHeight,bounds.height-60)},bounds);
 }

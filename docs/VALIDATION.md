@@ -22,6 +22,6 @@ pnpm verify:mainnet is read-only and does not require any account. pnpm check ru
 
 ## Remaining external limits
 
-The configured AI provider still rejects real generation; controlled-provider tests prove the application path only. Restore provider access before claiming live Copilot availability. Blockscout holder indexing depends on its external service. Public hosting is deferred by the user. No real human-wallet mainnet launch, public deployment, independent contract audit or complete historical index is claimed by this validation. Local simulations are not a guarantee of financial safety.
+Follow-up on 2026-11-13: live social drafting and daily briefing with private persistence passed after selecting a working provider model; see AI_ACCEPTANCE_2026-11-13.md. The earlier provider-access failure was superseded by those real application requests. Blockscout holder indexing depends on its external service. Public hosting is deferred by the user. No real human-wallet mainnet launch, public deployment, independent contract audit or complete historical index is claimed by this validation. Local simulations are not a guarantee of financial safety.
 
 Loading regression verified on the real hood morning (HOOD) launch, 0xf7F6DbB998F4BD0f78597C24Df05b4F4d67684C2, paired with the onchain six-decimal USDG token. Core price/phase/reserves and recent trades were read separately. Failure of Blockscout no longer blocks those facts. No trade was broadcast.

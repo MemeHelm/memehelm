@@ -8,3 +8,7 @@ export function HelmMark({className=''}:{className?:string}) {
 export function Wordmark(){return <span className="helm-wordmark"><HelmMark/><span>MemeHelm<span className="wordmark-dot">.</span></span></span>;}
 
 export function Arrow({diagonal=false}:{diagonal?:boolean}){return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d={diagonal?'M6 18 18 6M6 6h12v12':'M4 12h16m-6-6 6 6-6 6'}/></svg>;}
+
+export function TokenPlaceholder({symbol=''}:{symbol?:string}){
+  return <span className="token-placeholder" aria-hidden="true">{symbol?symbol.slice(0,2).toUpperCase():<svg width="32" height="32" viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="4" y="4" width="24" height="24" rx="3"/><circle cx="12" cy="12" r="2"/><path d="m5 24 8-8 5 5 4-4 6 6"/></svg>}</span>;
+}

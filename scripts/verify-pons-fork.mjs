@@ -43,8 +43,12 @@ try{
  const session=await fetch(endpoint+'/api/auth/verify',{method:'POST',headers:{...headers,cookie:challenge.headers.getSetCookie()[0].split(';')[0]},body:JSON.stringify({message,signature})});assert.equal(session.status,200);
  const cookie=session.headers.getSetCookie()[0].split(';')[0],post=(path,body)=>fetch(endpoint+'/api'+path,{method:'POST',headers:{...headers,cookie},body:JSON.stringify(body)});
  assert.equal((await fetch(endpoint+'/api/trade/quote',{method:'POST',headers,body:'{}'})).status,401);
- const input={...draft,tokenAddress:token,launchHash:receipt.transactionHash};
+ const draftResponse=await post('/projects',{...draft,draft});assert.equal(draftResponse.status,201,await draftResponse.clone().text());const savedDraft=await draftResponse.json();assert.equal(savedDraft.vaultAddress,null);assert.equal(savedDraft.draft.vaultAddress.toLowerCase(),vault.toLowerCase());
+ const assistant={aiName:'Fork Guide',aiVoice:'Clear & practical',aiGoal:'Keep the saved launch context.'};assert.equal((await post(`/projects/${savedDraft.id}/assistant`,assistant)).status,200);
+ const input={...draft,draftId:savedDraft.id,tokenAddress:token,launchHash:receipt.transactionHash};
  const response=await post('/projects',input);assert.equal(response.status,201,await response.clone().text());const projectRecord=await response.json();
+ assert.equal(projectRecord.id,savedDraft.id);assert.equal(projectRecord.status,'launched');assert.equal(projectRecord.draft,undefined);for(const [key,value]of Object.entries(assistant))assert.equal(projectRecord[key],value);
+ console.log('PASS activated split draft save → restore → confirmed launch, with assistant profile preserved');
  const snapshot=await fetch(endpoint+`/api/projects/${projectRecord.id}/snapshot`,{headers:{cookie}});assert.equal(snapshot.status,200);
  const published=await post(`/projects/${projectRecord.id}/publication`,{published:true});assert.equal(published.status,200,await published.clone().text());
  const publicPage=await fetch(endpoint+`/api/public/projects/${projectRecord.id}`);assert.equal(publicPage.status,200);const page=await publicPage.json();assert.equal(page.project.owner,undefined);assert.equal(page.project.draft,undefined);
