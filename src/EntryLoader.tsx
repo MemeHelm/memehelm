@@ -15,7 +15,7 @@ export function EntryLoader({onDone}:{onDone:()=>void}){
   }
   useEffect(()=>{
     let alive=true,minimumPassed=false,fontsReady=!document.fonts;
-    const minimum=window.setTimeout(()=>{minimumPassed=true;if(fontsReady&&alive)enter();},780);
+    const minimum=window.setTimeout(()=>{minimumPassed=true;if(fontsReady&&alive)enter();},600);
     // The intro can prepare the font, but a slow font must never block entry.
     const fallback=window.setTimeout(()=>{if(alive)enter();},1150);
     document.fonts?.ready.then(()=>{fontsReady=true;if(minimumPassed&&alive)enter();}).catch(()=>{fontsReady=true;if(minimumPassed&&alive)enter();});
@@ -25,5 +25,5 @@ export function EntryLoader({onDone}:{onDone:()=>void}){
     document.addEventListener('keydown',key);preference.addEventListener('change',changed);
     return()=>{alive=false;window.clearTimeout(minimum);window.clearTimeout(fallback);window.clearTimeout(exitTimer.current);document.removeEventListener('keydown',key);preference.removeEventListener('change',changed);};
   },[]);
-  return <section className={`entry-loader ${leaving?'is-leaving':''}`} aria-label="Welcome to MemeHelm"><div className="entry-grid" aria-hidden="true"/><div className="entry-loader-center"><div className="entry-mark" aria-hidden="true"><span className="entry-orbit"/><span className="entry-corner corner-a"/><span className="entry-corner corner-b"/><HelmMark/></div><h1>MemeHelm<span>.</span></h1><p className="entry-tagline">Launch it. Steer it.</p><div className="entry-track" aria-hidden="true"><span/></div><p className="entry-status" role="status">Opening your workspace<span aria-hidden="true">…</span></p></div><span className="entry-signature" aria-hidden="true">YOUR COIN. YOUR DIRECTION.</span><button className="entry-skip" onClick={enter}>Enter workspace <Arrow/></button></section>;
+  return <section className={`entry-loader ${leaving?'is-leaving':''}`} aria-label="Welcome to MemeHelm"><div className="entry-loader-center"><div className="entry-mark" aria-hidden="true"><HelmMark/></div><h1>MemeHelm<span>.</span></h1><p className="entry-tagline">Launch it. Steer it.</p></div><button className="entry-skip" onClick={enter}>Enter desktop <Arrow/></button></section>;
 }

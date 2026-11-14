@@ -1,19 +1,25 @@
-import {useEffect,useRef,useState} from 'react';
+import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
 import {api} from './api';
 import {Arrow} from './Brand';
 import {DraftEditor} from './DraftEditor';
 import {OperationsWorkspace} from './OperationsWorkspace';
+import {GrowthWorkspace} from './GrowthWorkspace';
+import {ContentCalendar} from './ContentCalendar';
+import type {CopilotView} from './ProjectToday';
 import {CommunityWorkspace} from './CommunityWorkspace';
-import type {OperationsView} from './OperationsWorkspace';
+import {ProjectChat} from './ProjectChat';
+
 import type {Activity,Project} from './types';
 import './workflows.css';
 
 const tasks=[{id:'brief',title:'Daily brief',description:'Understand the facts. Pick your next moves.'},{id:'post',title:'Social draft',description:'Find the words for your next community update.'},{id:'plan',title:'7-day plan',description:'Give the week a clear direction.'}];
 type Props={project:Project|undefined;selector:ReactNode;available:boolean;createProject:()=>void;updated?:(project:Project)=>void};
 export function CopilotWorkspace(props:Props){
- const [view,setView]=useState<OperationsView|'writing'|'community'>(()=>new URLSearchParams(location.search).has('x')?'community':'today'),[blocked,setBlocked]=useState(false);
- return <div className="copilot-operations"><div className="page-title"><div><h1>AI Copilot</h1><fieldset className="copilot-project-selector" disabled={blocked}>{props.selector}</fieldset></div><p>Remember the project. Review its next moves. Keep track of the results.</p></div><nav className="copilot-navigation" aria-label="Copilot views">{(['today','memory','community','activity','writing'] as const).map(item=><button key={item} disabled={blocked} aria-pressed={view===item} onClick={()=>setView(item)}>{({today:'Today',memory:'Project memory',community:'Community',activity:'Activity',writing:'Writing'})[item]}</button>)}</nav>{view==='writing'?<div className="copilot-writing"><WritingWorkspace {...props} onBlocked={setBlocked}/></div>:props.project?view==='community'?<CommunityWorkspace key={props.project.id} project={props.project} onBlocked={setBlocked}/>:<OperationsWorkspace key={props.project.id} project={props.project} view={view} available={props.available} onBlocked={setBlocked}/>:<div className="ops-empty"><h2>Give your project a working memory.</h2><p>Create or import a project to collect its context, review proposed actions and record what happens next.</p><button className="button primary" onClick={props.createProject}>Create a project</button></div>}</div>;
+ const [view,setView]=useState<CopilotView>(()=>new URLSearchParams(location.search).has('x')?'community':'chat'),[blocked,setBlocked]=useState(false);
+ const navigation=useRef<HTMLElement>(null);
+ useLayoutEffect(()=>{const nav=navigation.current;if(!nav)return;let alive=true;const reveal=()=>{if(!alive)return;const active=nav.querySelector<HTMLButtonElement>('button[aria-pressed="true"]');if(!active)return;const bounds=nav.getBoundingClientRect(),button=active.getBoundingClientRect();if(button.left<bounds.left+8)nav.scrollLeft+=button.left-bounds.left-8;else if(button.right>bounds.right-8)nav.scrollLeft+=button.right-bounds.right+8;};reveal();const observer=new ResizeObserver(reveal);observer.observe(nav);void document.fonts.ready.then(reveal);return()=>{alive=false;observer.disconnect();};},[view]);
+ return <div className="copilot-operations"><div className="page-title"><div><h1>AI Copilot</h1><fieldset className="copilot-project-selector" disabled={blocked}>{props.selector}</fieldset></div><p>Remember the project. Review its next moves. Keep track of the results.</p></div><nav ref={navigation} className="copilot-navigation" aria-label="Copilot views">{(['chat','today','memory','goals','content','community','activity','writing'] as const).map(item=><button key={item} disabled={blocked} aria-pressed={view===item} onClick={()=>setView(item)}>{({chat:'Chat',today:'Today',goals:'Community goals',content:'Content studio',memory:'Project memory',community:'Community',activity:'Activity',writing:'Writing'})[item]}</button>)}</nav>{view==='writing'?<div className="copilot-writing"><WritingWorkspace {...props} onBlocked={setBlocked}/></div>:props.project?view==='goals'?<GrowthWorkspace key={props.project.id} project={props.project} onBlocked={setBlocked}/>:view==='content'?<ContentCalendar key={props.project.id} project={props.project} onBlocked={setBlocked}/>:view==='community'?<CommunityWorkspace key={props.project.id} project={props.project} onBlocked={setBlocked}/>:view==='chat'?<ProjectChat key={props.project.id} project={props.project} available={props.available}/>:<OperationsWorkspace key={props.project.id} project={props.project} view={view} onNavigate={setView} available={props.available} onBlocked={setBlocked}/>:<div className="ops-empty"><h2>Give your project a working memory.</h2><p>Create or import a project to collect its context, review proposed actions and record what happens next.</p><button className="button primary" onClick={props.createProject}>Create a project</button></div>}</div>;
 }
 function WritingWorkspace({project,selector,available,createProject,updated,onBlocked}:Props&{onBlocked:(blocked:boolean)=>void}){
   const [task,setTask]=useState('brief'),[records,setRecords]=useState<Activity[]>([]),[selected,setSelected]=useState(''),[loading,setLoading]=useState(false),[generating,setGenerating]=useState(false),[sharing,setSharing]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[approved,setApproved]=useState(false);

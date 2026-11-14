@@ -17,6 +17,9 @@ export const factoryAbi=parseAbi([
   'function feeEscrow() view returns (address)',
   'function memeHook() view returns (address)',
   'function launchToken(TokenParams,uint256,address) payable returns (address token,address curve)',
+  'function launchToken(TokenParams,uint256,address,address[] snipeTaxExemptions) payable returns (address token,address curve)',
+  'function snipeTaxSeconds() view returns (uint256)',
+  'function snipeTaxStartBps() view returns (uint256)',
   'function createGraduatedPool(address token)',
   'event TokenLaunched(address indexed token,address indexed curve,address indexed deployer,address pairToken,uint256 launchConfigId,uint256 graduationThreshold)',
 ]);

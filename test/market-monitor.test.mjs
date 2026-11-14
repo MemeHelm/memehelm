@@ -31,3 +31,46 @@ test('monitor keeps alerts private, ignores missing prices and preserves facts o
 test('SQLite migration preserves legacy files and rolls back failed mutations',async()=>{
   const dir=await directory();try{await writeFile(resolve(dir,'projects.json'),JSON.stringify([{id:'legacy',chainId:97}]));const store=createWorkspaceStore(dir);assert.equal((await store.projects())[0].id,'legacy');await assert.rejects(()=>store.mutateProjects(records=>{records.push({id:'failed'});throw new Error('rollback');}),/rollback/);assert.equal((await store.projects()).length,1);await store.mutateProjects(records=>records.push({id:'saved',owner:'alice'}));assert.equal((await createWorkspaceStore(dir).projects()).length,2);}finally{await cleanup(dir);}
 });
+
+test('token forensics reports bounded observations with coverage, never scores',async()=>{
+  const dir=await directory(),store=createWorkspaceStore(dir);
+  const buyer='0x3333333333333333333333333333333333333333',curve='0x4444444444444444444444444444444444444444',zero='0x'+'0'.repeat(40);
+  const launch={exists:true,token,curve,deployer:creator,creatorFeeRecipient:creator,pairToken:zero,graduationThreshold:42n*10n**16n,creatorTaxBps:200n,buybackEnabled:false,phase:0};
+  const client={getBlockNumber:async()=>5000n,getBlock:async()=>({timestamp:1700000000n}),getCode:async()=>'0x',
+    getLogs:async parameters=>parameters.fromBlock===0n?[{blockNumber:10n,logIndex:0n,transactionHash:'0x'+'a'.repeat(64),eventName:'CurveBuy',args:{buyer:creator,quoteIn:10n**18n,tokensOut:5n*10n**20n}},{blockNumber:20n,logIndex:0n,transactionHash:'0x'+'b'.repeat(64),eventName:'CurveSell',args:{seller:buyer,tokensIn:10n**20n,quoteOut:5n**16n}},{blockNumber:30n,logIndex:0n,transactionHash:'0x'+'c'.repeat(64),eventName:'CurveBuy',args:{buyer,quoteIn:10n**17n,tokensOut:5n*10n**19n}}]:[],
+    readContract:async({functionName})=>({name:'Verified Coin',symbol:'VC',totalSupply:10n**27n,decimals:18n,getLaunchedToken:launch}[functionName])};
+  const protocol={verify:async()=>{},launchRecord:async()=>launch,marketState:async()=>({phase:0,price:'0.001',reserve:'1',progress:1,graduated:false,buyTaxBps:200,sellTaxBps:200,currency:'ETH',pairToken:zero,readyToGraduate:false}),quoteAsset:async()=>({address:zero,symbol:'ETH',decimals:18})};
+  const fetcher=async url=>url.endsWith('/holders')?Response.json({items:[{address:{hash:creator},value:String(3n*10n**26n)},{address:{hash:buyer},value:String(10n**26n)}]}):Response.json({holders_count:'12'});
+  try{
+    const market=createMarket(store,{client,protocol,fetcher,now:()=>1800000000000}),report=await market.forensics(token);
+    assert.equal(report.registration.registered,true);assert.equal(report.registration.phase,0);
+    assert.equal(report.creatorEconomics.creatorTaxBps,200);assert.equal(report.creatorEconomics.recipientIsContract,false);assert.equal(report.creatorEconomics.buybackEnabled,false);
+    assert.equal(report.concentration.share,40);assert.equal(report.concentration.largestCount,2);assert.equal(report.concentration.holdersCount,12);
+    assert.match(report.concentration.note,/not a whale or ownership verdict/);
+    assert.equal(report.observedTrading.buys,2);assert.equal(report.observedTrading.sells,1);assert.equal(report.observedTrading.distinctWallets,2);
+    assert.equal(report.observedTrading.coverage.fromBlock,'0');assert.equal(report.observedTrading.coverage.toBlock,'5000');
+    assert.equal(report.launcherActivity.buys,1);assert.equal(report.launcherActivity.sells,0);
+    assert.deepEqual(report.flags.map(flag=>flag.id),['creator-fee','concentration','launcher-traded']);
+    assert.match(report.flags[0].label,/Creator fee 2%/);assert.match(report.flags[1].label,/Top 2 balances hold 40%/);assert.match(report.flags[2].label,/Launching wallet traded 1×/);
+    assert.ok(report.flags.every(flag=>typeof flag.label==='string'&&!/score|risk/i.test(flag.id)));
+    assert.match(report.scope,/20,000 blocks/);assert.match(report.disclaimer,/not an independent audit/i);
+    assert.equal(report.score,undefined);assert.equal(report.riskScore,undefined);
+  }finally{await cleanup(dir);}
+});
+
+test('unregistered tokens get honest forensics without invented protocol facts',async()=>{
+  const dir=await directory(),store=createWorkspaceStore(dir);
+  const zero='0x'+'0'.repeat(40),buyer='0x3333333333333333333333333333333333333333';
+  const client={getBlockNumber:async()=>5000n,getBlock:async()=>({timestamp:1700000000n}),getLogs:async()=>[],
+    readContract:async({functionName})=>({name:'Outside Coin',symbol:'OC',totalSupply:10n**27n,decimals:18n,getLaunchedToken:{exists:false}}[functionName])};
+  const protocol={verify:async()=>{},launchRecord:async()=>{throw new Error('not issued');},quoteAsset:async()=>({address:zero,symbol:'ETH',decimals:18})};
+  const fetcher=async url=>url.endsWith('/holders')?Response.json({items:[{address:{hash:buyer},value:String(10n**26n)}]}):Response.json({holders_count:'1'});
+  try{
+    const report=await createMarket(store,{client,protocol,fetcher,now:()=>1800000000000}).forensics(token);
+    assert.equal(report.registration.registered,false);
+    assert.deepEqual(report.flags.map(flag=>flag.id),['unregistered']);assert.match(report.flags[0].label,/Not a pons v2 launch/);
+    assert.equal(report.creatorEconomics,null);assert.equal(report.observedTrading,null);assert.equal(report.launcherActivity,null);
+    assert.equal(report.concentration.share,10);
+    assert.match(report.disclaimer,/not an independent audit/i);
+  }finally{await cleanup(dir);}
+});

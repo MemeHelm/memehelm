@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-14T17:21:04.694Z",
+  "title": "Design System: MemeHelm OS",
+  "extensions": {
+    "colorMeta": {
+      "citron": {
+        "role": "primary",
+        "displayName": "Citron",
+        "canonical": "#d7ff00",
+        "tonalRamp": [
+          "oklch(15% 0.0908 120.5)",
+          "oklch(26% 0.1458 120.5)",
+          "oklch(38% 0.1860 120.5)",
+          "oklch(50% 0.2000 120.5)",
+          "oklch(62% 0.1860 120.5)",
+          "oklch(74% 0.1458 120.5)",
+          "oklch(85% 0.0908 120.5)",
+          "oklch(95% 0.0313 120.5)"
+        ]
+      },
+      "citron-hover": {
+        "role": "primary",
+        "displayName": "Citron Hover",
+        "canonical": "#e1ff40",
+        "tonalRamp": [
+          "oklch(15% 0.0908 118.5)",
+          "oklch(26% 0.1458 118.5)",
+          "oklch(38% 0.1860 118.5)",
+          "oklch(50% 0.2000 118.5)",
+          "oklch(62% 0.1860 118.5)",
+          "oklch(74% 0.1458 118.5)",
+          "oklch(85% 0.0908 118.5)",
+          "oklch(95% 0.0313 118.5)"
+        ]
+      },
+      "accent-ink": {
+        "role": "neutral",
+        "displayName": "Accent Ink",
+        "canonical": "#171e00",
+        "tonalRamp": [
+          "oklch(15% 0.0240 121.2)",
+          "oklch(26% 0.0386 121.2)",
+          "oklch(38% 0.0492 121.2)",
+          "oklch(50% 0.0529 121.2)",
+          "oklch(62% 0.0492 121.2)",
+          "oklch(74% 0.0386 121.2)",
+          "oklch(85% 0.0240 121.2)",
+          "oklch(95% 0.0083 121.2)"
+        ]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "#0d1115",
+        "tonalRamp": [
+          "oklch(15% 0.0048 248.4)",
+          "oklch(26% 0.0076 248.4)",
+          "oklch(38% 0.0097 248.4)",
+          "oklch(50% 0.0105 248.4)",
+          "oklch(62% 0.0097 248.4)",
+          "oklch(74% 0.0076 248.4)",
+          "oklch(85% 0.0048 248.4)",
+          "oklch(95% 0.0016 248.4)"
+        ]
+      },
+      "window": {
+        "role": "neutral",
+        "displayName": "Window",
+        "canonical": "#191f26",
+        "tonalRamp": [
+          "oklch(15% 0.0073 252.5)",
+          "oklch(26% 0.0118 252.5)",
+          "oklch(38% 0.0150 252.5)",
+          "oklch(50% 0.0162 252.5)",
+          "oklch(62% 0.0150 252.5)",
+          "oklch(74% 0.0118 252.5)",
+          "oklch(85% 0.0073 252.5)",
+          "oklch(95% 0.0025 252.5)"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card",
+        "canonical": "#1e252d",
+        "tonalRamp": [
+          "oklch(15% 0.0082 251.9)",
+          "oklch(26% 0.0132 251.9)",
+          "oklch(38% 0.0169 251.9)",
+          "oklch(50% 0.0181 251.9)",
+          "oklch(62% 0.0169 251.9)",
+          "oklch(74% 0.0132 251.9)",
+          "oklch(85% 0.0082 251.9)",
+          "oklch(95% 0.0028 251.9)"
+        ]
+      },
+      "field": {
+        "role": "neutral",
+        "displayName": "Field",
+        "canonical": "#101318",
+        "tonalRamp": [
+          "oklch(15% 0.0051 260.6)",
+          "oklch(26% 0.0082 260.6)",
+          "oklch(38% 0.0105 260.6)",
+          "oklch(50% 0.0113 260.6)",
+          "oklch(62% 0.0105 260.6)",
+          "oklch(74% 0.0082 260.6)",
+          "oklch(85% 0.0051 260.6)",
+          "oklch(95% 0.0018 260.6)"
+        ]
+      },
+      "cold-white": {
+        "role": "neutral",
+        "displayName": "Cold White",
+        "canonical": "#edf1f5",
+        "tonalRamp": [
+          "oklch(15% 0.0031 247.9)",
+          "oklch(26% 0.0050 247.9)",
+          "oklch(38% 0.0064 247.9)",
+          "oklch(50% 0.0069 247.9)",
+          "oklch(62% 0.0064 247.9)",
+          "oklch(74% 0.0050 247.9)",
+          "oklch(85% 0.0031 247.9)",
+          "oklch(95% 0.0011 247.9)"
+        ]
+      },
+      "silver": {
+        "role": "neutral",
+        "displayName": "Silver",
+        "canonical": "#d2dbe3",
+        "tonalRamp": [
+          "oklch(15% 0.0067 244.7)",
+          "oklch(26% 0.0107 244.7)",
+          "oklch(38% 0.0137 244.7)",
+          "oklch(50% 0.0147 244.7)",
+          "oklch(62% 0.0137 244.7)",
+          "oklch(74% 0.0107 244.7)",
+          "oklch(85% 0.0067 244.7)",
+          "oklch(95% 0.0023 244.7)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#a6b0bb",
+        "tonalRamp": [
+          "oklch(15% 0.0088 250.6)",
+          "oklch(26% 0.0141 250.6)",
+          "oklch(38% 0.0180 250.6)",
+          "oklch(50% 0.0194 250.6)",
+          "oklch(62% 0.0180 250.6)",
+          "oklch(74% 0.0141 250.6)",
+          "oklch(85% 0.0088 250.6)",
+          "oklch(95% 0.0030 250.6)"
+        ]
+      },
+      "subtle": {
+        "role": "neutral",
+        "displayName": "Subtle",
+        "canonical": "#96a1ad",
+        "tonalRamp": [
+          "oklch(15% 0.0098 250.5)",
+          "oklch(26% 0.0157 250.5)",
+          "oklch(38% 0.0201 250.5)",
+          "oklch(50% 0.0216 250.5)",
+          "oklch(62% 0.0201 250.5)",
+          "oklch(74% 0.0157 250.5)",
+          "oklch(85% 0.0098 250.5)",
+          "oklch(95% 0.0034 250.5)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Line",
+        "canonical": "#38424d",
+        "tonalRamp": [
+          "oklch(15% 0.0105 250.9)",
+          "oklch(26% 0.0168 250.9)",
+          "oklch(38% 0.0214 250.9)",
+          "oklch(50% 0.0231 250.9)",
+          "oklch(62% 0.0214 250.9)",
+          "oklch(74% 0.0168 250.9)",
+          "oklch(85% 0.0105 250.9)",
+          "oklch(95% 0.0036 250.9)"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "#4b586b",
+        "tonalRamp": [
+          "oklch(15% 0.0160 257.8)",
+          "oklch(26% 0.0256 257.8)",
+          "oklch(38% 0.0327 257.8)",
+          "oklch(50% 0.0352 257.8)",
+          "oklch(62% 0.0327 257.8)",
+          "oklch(74% 0.0256 257.8)",
+          "oklch(85% 0.0160 257.8)",
+          "oklch(95% 0.0055 257.8)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Brand Entrance",
+        "purpose": "The brief entry wordmark; the wallpaper has its own responsive size."
+      },
+      "headline": {
+        "displayName": "Workspace Heading",
+        "purpose": "Primary heading inside Workspace."
+      },
+      "title": {
+        "displayName": "Project Identity",
+        "purpose": "The current project name in Workspace."
+      },
+      "body": {
+        "displayName": "Compact Supporting Copy",
+        "purpose": "Workspace descriptions and short working explanations."
+      },
+      "label": {
+        "displayName": "Shortcut Label",
+        "purpose": "Compact labels under desktop app tiles."
+      },
+      "button": {
+        "displayName": "Button",
+        "purpose": "Shared OS action controls."
+      }
+    },
+    "shadows": [
+      {
+        "name": "window",
+        "value": "0 24px 70px #00000070,0 4px 12px #00000030",
+        "purpose": "Separate an independent application window from the desktop."
+      },
+      {
+        "name": "window-focused",
+        "value": "0 24px 70px #00000080,0 4px 12px #00000035",
+        "purpose": "Stronger ambient depth for the active window."
+      },
+      {
+        "name": "app-tile",
+        "value": "inset 0 1px 0 #ffffff12,0 5px 9px #00000030",
+        "purpose": "A matte silver icon tile with a restrained upper edge."
+      },
+      {
+        "name": "dock",
+        "value": "inset 0 1px #ffffff09,0 12px 35px #0005,0 3px 9px #0003",
+        "purpose": "Lift the floating navigation from the graphite ground."
+      },
+      {
+        "name": "launcher",
+        "value": "0 18px 60px #0009",
+        "purpose": "Depth under the Apps menu."
+      }
+    ],
+    "motion": [
+      {
+        "name": "mh-ease",
+        "value": "cubic-bezier(.23,1,.32,1)",
+        "purpose": "Source --mh-ease: entrance, window opening, closing and pointer feedback."
+      },
+      {
+        "name": "mh-move",
+        "value": "cubic-bezier(.77,0,.175,1)",
+        "purpose": "Source --mh-move: minimizing a window."
+      },
+      {
+        "name": "window-open-restore",
+        "value": "240ms; opacity 0 to 1; translateY(10px) scale(.97) to none",
+        "purpose": "Interruptible pointer opening and restoration; skipped for keyboard actions and reduced motion."
+      },
+      {
+        "name": "window-minimize",
+        "value": "240ms; opacity to 0; translateY(30px) scale(.96)",
+        "purpose": "Minimize to the persistent Dock identity, then return focus there."
+      },
+      {
+        "name": "window-close",
+        "value": "180ms; opacity to 0; translateY(6px) scale(.98)",
+        "purpose": "Brief closing transition; keyboard and reduced motion act immediately."
+      },
+      {
+        "name": "desktop-reveal",
+        "value": "topbar 240ms; dock 260ms with 60ms delay; shortcuts 240ms with calc(50ms + index * 45ms) delay",
+        "purpose": "A short, ordered desktop arrival."
+      },
+      {
+        "name": "dock-hover",
+        "value": "140ms var(--mh-ease); translateY(-4px) scale(1.06)",
+        "purpose": "Fine-pointer feedback; no transform in reduced motion."
+      },
+      {
+        "name": "independent-points",
+        "value": "28s,32s,24s linear infinite; peak opacity .34",
+        "purpose": "Three separately timed light points; pause control and hidden-document pause; hidden in reduced motion."
+      },
+      {
+        "name": "entry",
+        "value": "600ms minimum; 1150ms font fallback; 240ms opacity exit",
+        "purpose": "Skippable brand entrance, bypassed initially for reduced motion; no simulated progress."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-topbar",
+        "value": "1050px"
+      },
+      {
+        "name": "wallpaper-inset",
+        "value": "1000px"
+      },
+      {
+        "name": "phone-shell",
+        "value": "720px"
+      },
+      {
+        "name": "compact-wordmark",
+        "value": "360px"
+      },
+      {
+        "name": "workspace-single-column-container",
+        "value": "700px"
+      },
+      {
+        "name": "narrow-window-container",
+        "value": "440px"
+      },
+      {
+        "name": "short-desktop-height",
+        "value": "710px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Citron action with dark ink, a soft curve and visible keyboard focus.",
+      "html": "<button class=\"ds-btn-primary\">Launch a coin <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path d=\"M4 12h16m-6-6 6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:44px;padding:11px 17px;border:1px solid var(--mh-accent,#d7ff00);border-radius:7px;background:var(--mh-accent,#d7ff00);color:#171e00;font:500 12px/20px 'DM Sans',Arial,sans-serif;cursor:pointer;transition:background-color 140ms,border-color 140ms,transform 120ms var(--mh-ease,cubic-bezier(.23,1,.32,1))}.ds-btn-primary:hover:not(:disabled){background:#e1ff40;border-color:#e1ff40;transform:translateY(-1px)}.ds-btn-primary:focus-visible{outline:2px solid var(--mh-accent,#d7ff00);outline-offset:3px}.ds-btn-primary:active:not(:disabled){transform:translateY(1px)}.ds-btn-primary:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-btn-primary{transition:none}}"
+    },
+    {
+      "name": "Project Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A shared application field showing the effective inherited important background, border and radius.",
+      "html": "<label class=\"ds-field\"><span>Project name</span><input class=\"ds-input\" type=\"text\" placeholder=\"Give your idea a name\" /></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:8px;color:#e0e6ee;font:500 13px/20px 'DM Sans',Arial,sans-serif}.ds-input{min-height:44px;padding:11px 13px;border:1px solid #4b586b;border-radius:6px;background:#101318;color:#e5ebf2;font:400 13px/22px 'DM Sans',Arial,sans-serif;transition:background .15s,border-color .15s,color .15s}.ds-input::placeholder{color:#8795a4}.ds-input:hover{border-color:#4b586b}.ds-input:focus-visible{outline:2px solid var(--mh-accent,#d7ff00);outline-offset:1px}.ds-input:disabled{opacity:.45;cursor:not-allowed}@media(prefers-reduced-motion:reduce){.ds-input{transition:none}}"
+    },
+    {
+      "name": "Floating Dock",
+      "kind": "nav",
+      "refersTo": "dock",
+      "description": "Representative common apps with the shared matte tile, citron notch, running dots and hover/focus labels.",
+      "html": "<nav class=\"ds-dock\" aria-label=\"Application dock\"><button class=\"ds-dock-app\" aria-label=\"Open Launchpad\"><span class=\"ds-tile ds-launch\"><svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M12 10 25 4l-3 14-9 7-6-6Z\" fill=\"currentColor\" fill-opacity=\".16\"/><path d=\"m12 10 7 4 3 4M7 19l-4 2 7 3 3 5 1-4M7 25l-3 4\"/><circle cx=\"19\" cy=\"11\" r=\"2\" fill=\"currentColor\" stroke=\"none\"/></svg><i></i></span><span class=\"ds-dock-label\">Launchpad</span></button><button class=\"ds-dock-app ds-running\" aria-label=\"Switch to My Projects\"><span class=\"ds-tile ds-projects\"><svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M3 7h10l3 4h13v16H3Z\" fill=\"currentColor\" fill-opacity=\".16\"/><path d=\"M3 7h10l3 4H3Z\" fill=\"var(--mh-accent,#d7ff00)\" stroke=\"none\"/><path d=\"M3 13h26v14H3Z\" fill=\"currentColor\" fill-opacity=\".28\"/></svg><i></i></span><span class=\"ds-dock-label\">My Projects</span></button><button class=\"ds-dock-app ds-running ds-active\" aria-label=\"Switch to Workspace\" aria-pressed=\"true\"><span class=\"ds-tile\"><svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"m5 13 11-9 11 9v15H5Z\"/><path d=\"M12 28V17h8v11\"/></svg><i></i></span><span class=\"ds-dock-label\">Workspace</span></button></nav>",
+      "css": ".ds-dock{display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;padding:9px 10px 7px;border:1px solid #ffffff23;border-radius:20px;background:linear-gradient(#343c45c4,#232b34d9);box-shadow:inset 0 1px #ffffff09,0 12px 35px #0005,0 3px 9px #0003;backdrop-filter:blur(22px)}.ds-dock-app{position:relative;display:grid;place-items:start center;flex:0 0 54px;width:54px;height:59px;padding:0 0 8px;border:0;border-radius:11px;background:none;color:#d2dbe3;cursor:pointer;transition:transform 140ms var(--mh-ease,cubic-bezier(.23,1,.32,1))}.ds-tile{position:relative;display:grid;place-items:center;width:50px;height:50px;border:1px solid #ffffff23;border-radius:13px;background:linear-gradient(145deg,#46505a,#2c343d 46%,#1b222a);box-shadow:inset 0 1px 0 #ffffff12,0 5px 9px #00000030;overflow:hidden}.ds-tile>svg{width:32px;height:32px;filter:drop-shadow(0 2px 2px #0005)}.ds-launch>svg{transform:rotate(-7deg)}.ds-projects{background:linear-gradient(145deg,#53606b,#343e48 52%,#242d36)}.ds-tile>i{position:absolute;right:4px;top:4px;width:7px;height:8px;clip-path:polygon(0 35%,100% 0,100% 65%,0 100%);background:var(--mh-accent,#d7ff00);opacity:.8}.ds-running::after{content:'';position:absolute;width:3px;height:3px;bottom:0;left:calc(50% - 1.5px);background:#9ca9b6;border-radius:50%}.ds-active::after{background:var(--mh-accent,#d7ff00)}.ds-dock-label{position:absolute;bottom:calc(100% + 15px);left:50%;transform:translateX(-50%);opacity:0;pointer-events:none;white-space:nowrap;border:1px solid #ffffff1f;border-radius:6px;background:#282f37f2;padding:6px 10px;box-shadow:0 4px 15px #0005;color:#e5ebf2;font:500 11px/1.4 'DM Sans',sans-serif;transition:opacity 100ms}.ds-dock-app:focus-visible{outline:2px solid var(--mh-accent,#d7ff00);outline-offset:3px}.ds-dock-app:focus-visible>.ds-dock-label{opacity:1}@media(hover:hover) and (pointer:fine){.ds-dock-app:hover{transform:translateY(-4px) scale(1.06)}.ds-dock-app:hover>.ds-dock-label{opacity:1}}@media(prefers-reduced-motion:reduce){.ds-dock-app,.ds-dock-label{transition:none}.ds-dock-app:hover{transform:none}}"
+    },
+    {
+      "name": "Neutral Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Compact, neutral information using the shared badge style; the word identifies an actual state.",
+      "html": "<span class=\"ds-badge\">Draft</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;padding:3px 7px;border:1px solid #526176;border-radius:4px;background:#293139;color:#c9d5df;font:500 10px/16px 'DM Sans',sans-serif;letter-spacing:0;white-space:nowrap}"
+    },
+    {
+      "name": "Application Window",
+      "kind": "card",
+      "refersTo": "application-window",
+      "description": "The signature glass titlebar, named left controls and solid working body; a visual specimen of the runtime window.",
+      "html": "<section class=\"ds-window\" aria-label=\"Workspace window\"><header class=\"ds-titlebar\"><div class=\"ds-window-controls\"><button class=\"ds-close\" aria-label=\"Close Workspace\"></button><button class=\"ds-minimize\" aria-label=\"Minimize Workspace\"></button><button class=\"ds-maximize\" aria-label=\"Maximize Workspace\"></button></div><svg viewBox=\"0 0 32 32\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linejoin=\"round\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"m5 13 11-9 11 9v15H5Z\"/><path d=\"M12 28V17h8v11\"/></svg><h2>Workspace</h2></header><div class=\"ds-window-body\"><h1>Your workspace.</h1><p>A little direction for your next big idea.</p></div></section>",
+      "css": ".ds-window{overflow:hidden;border:1px solid #ffffff2e;border-radius:13px;background:#191f26;color:var(--mh-text,#edf1f5);box-shadow:0 24px 70px #00000080,0 4px 12px #00000035}.ds-titlebar{display:flex;align-items:center;gap:8px;height:42px;padding:0 14px 0 8px;border-bottom:1px solid #ffffff09;background:linear-gradient(#30373ee8,#272e35ed);backdrop-filter:blur(18px)}.ds-titlebar>svg{width:16px;height:16px;color:#aeb9c3}.ds-titlebar h2{margin:0;color:#cbd3dc;font:500 12px/1.3 'DM Sans',sans-serif}.ds-window-controls{display:flex;gap:0;margin-right:11px}.ds-window-controls>button{position:relative;display:grid;place-items:center;width:28px;height:40px;padding:0;border:0;background:none;cursor:pointer}.ds-window-controls>button::before{content:'';width:11px;height:11px;border-radius:50%;box-shadow:inset 0 0 0 1px #0002}.ds-close::before{background:#ef756c}.ds-minimize::before{background:#e3ae4a}.ds-maximize::before{background:#80b981}.ds-window-controls>button:hover{color:#281c17}.ds-window-controls>button:focus-visible{outline:2px solid var(--mh-accent,#d7ff00);outline-offset:-4px;border-radius:7px}.ds-window-body{padding:30px 32px 28px;background:#1b2128}.ds-window-body h1{margin:0;color:var(--mh-text,#edf1f5);font:500 28px/1.2 'Space Grotesk',sans-serif;letter-spacing:-1px}.ds-window-body p{margin:8px 0 0;color:var(--mh-muted,#a6b0bb);font:400 12px/1.6 'DM Sans',Arial,sans-serif}"
+    }
+  ],
+  "narrative": {
+    "northStar": "MemeHelm OS — a creator's desk",
+    "overview": "A modern working desktop in graphite, cold white, silver and citron. Independent tools sit on a calm branded desk; opening a window gives the task a solid, legible interior. The original angular M appears as quiet relief, with its citron notch intact.\n\nThe material is restrained and tactile: matte dimensional app tiles, translucent chrome, thin dividers and soft ambient shadows. The wallpaper's sculpted geometry stays still. Three small points move independently when motion is enabled. English labels describe actual tools and honest states.\n\nThis records the implemented OS cascade in `src/os-theme.css`, supported by `motion.css`, `wallpaper.css`, `product.css` and `workspace-design.css`. It captures the approved world in `.impeccable/os-direction.md`; the code, rather than the concept image, determines values. The older `docs/DESIGN.md` is a legacy record.",
+    "keyCharacteristics": [
+      "Graphite task surfaces and silver tool identities.",
+      "A single citron accent for action, focus and the brand notch.",
+      "Independent windows, a thin top bar and a floating Dock.",
+      "A quiet relief M and three restrained points.",
+      "Compact text with clear labels and visible keyboard focus."
+    ],
+    "rules": [
+      {
+        "name": "The Citron Has a Job Rule",
+        "body": "Use citron to identify an action, focus, selection or the established brand detail. Preserve the dark silver field around it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Glass at the Edge Rule",
+        "body": "Use translucency for desktop chrome and floating navigation. Keep task interiors opaque enough to read over the wallpaper and other windows.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One App, One Identity Rule",
+        "body": "Keep the same app glyph and matte tile across shortcuts, Apps and the Dock. Opening, minimizing and restoring must remain connected to that identity.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do retain the original angular M, citron notch, MemeHelm name and “Launch it. Steer it.” tagline.",
+      "Do reuse graphite task surfaces, silver app tiles and the existing two-font hierarchy.",
+      "Do keep all tools reachable through Apps, search and the Dock on narrow screens.",
+      "Do preserve solid task interiors, visible focus and reduced-motion behavior.",
+      "Do show real project state and identify illustrative examples."
+    ],
+    "donts": [
+      "Don't animate wallpaper lines, ribbons or sculpted planes; only the three independent points move.",
+      "Don't replace this OS world with pastel chrome, retro pixel typography or a dashboard grid.",
+      "Don't add a circular plate behind the M, dense dot patterns or invented activity metrics.",
+      "Don't introduce decorative eyebrows, hard offset shadows or Unicode substitutes for authored SVG icons as reusable OS patterns."
+    ]
+  }
+}

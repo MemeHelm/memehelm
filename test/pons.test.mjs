@@ -7,7 +7,7 @@ const owner='0x1111111111111111111111111111111111111111',other='0x22222222222222
 function fixture(){
  let time=1800000000000,allowed=true,fee=12345n,phase=0,ready=false,allowance=0n;const simulations=[],checked=[];
  const record=()=>({token,curve,deployer:owner,creatorFeeRecipient:owner,pairToken:zeroAddress,graduationThreshold:parseEther('4.2'),poolFee:0,tickSpacing:200,creatorTaxBps:100,buybackEnabled:false,phase,sweptQuote:0n,sweptTokens:0n,sweptAt:0n,exists:true});
- const client={getChainId:async()=>4663,getBlockNumber:async()=>100n,getCode:async()=>'0x',getBalance:async()=>parseEther('100'),readContract:async({functionName,args})=>{const values={feeEscrow:PONS.escrow.address,memeHook:PONS.hook.address,launchFee:fee,launchConfigCount:1n,maxCreatorTaxBps:1000n,canLaunch:allowed,getLaunchConfig:{supply:10n**27n,curveFeeBps:100n,phantomQuote:parseEther('1.68'),graduationThreshold:parseEther('4.2'),poolFee:0,tickSpacing:200,enabled:true},previewLaunchEconomics:pin,getLaunchedToken:record(),getReserves:[parseEther('1.68'),10n**27n],realQuoteReserve:0n,sellableTokens:8n*10n**26n,feeBps:100n,creatorTaxBps:100n,currentSnipeTaxBps:0n,readyToGraduate:ready,balanceOf:parseEther('1000000'),allowance};if(!(functionName in values))throw Error(functionName);return values[functionName];},simulateContract:async request=>{simulations.push(request);return{result:0n};}};
+ const client={getChainId:async()=>4663,getBlockNumber:async()=>100n,getCode:async()=>'0x',getBalance:async()=>parseEther('100'),readContract:async({functionName,args})=>{const values={feeEscrow:PONS.escrow.address,memeHook:PONS.hook.address,launchFee:fee,launchConfigCount:1n,maxCreatorTaxBps:1000n,canLaunch:allowed,snipeTaxSeconds:600n,snipeTaxStartBps:5000n,getLaunchConfig:{supply:10n**27n,curveFeeBps:100n,phantomQuote:parseEther('1.68'),graduationThreshold:parseEther('4.2'),poolFee:0,tickSpacing:200,enabled:true},previewLaunchEconomics:pin,getLaunchedToken:record(),getReserves:[parseEther('1.68'),10n**27n],realQuoteReserve:0n,sellableTokens:8n*10n**26n,feeBps:100n,creatorTaxBps:100n,currentSnipeTaxBps:0n,readyToGraduate:ready,balanceOf:parseEther('1000000'),allowance};if(!(functionName in values))throw Error(functionName);return values[functionName];},simulateContract:async request=>{simulations.push(request);return{result:0n};}};
  const protocol=createPons({client,now:()=>time,checkCode:async(_,name)=>checked.push(name)});
  return{protocol,client,simulations,checked,setTime:v=>time=v,setAllowed:v=>allowed=v,setFee:v=>fee=v,setPhase:v=>phase=v,setReady:v=>ready=v,setAllowance:v=>allowance=v};
 }
@@ -18,6 +18,17 @@ test('launch reads wallet permissions, fee and economics pin again for every pre
  f.setAllowed(false);await assert.rejects(()=>f.protocol.prepareLaunch(owner,draft),/not accepting launches/);assert.equal(f.simulations.length,2);
  f.setAllowed(true);await assert.rejects(()=>f.protocol.prepareLaunch(owner,{...draft,creatorTaxBps:1001}),/current protocol limit/);
  assert.deepEqual(f.checked.slice(0,3),['factory','hook','escrow']);
+});
+test('snipe tax exemptions reach the four-argument launchToken overload only when supplied',async()=>{
+ const f=fixture(),draft={name:'Orbit Club',symbol:'ORBIT',creatorFeeRecipient:owner,creatorTaxBps:100,configId:0,snipeTaxExemptions:[owner,other]};
+ const prepared=await f.protocol.prepareLaunch(owner,draft),decoded=decodeFunctionData({abi:factoryAbi,data:prepared.data});
+ assert.equal(decoded.functionName,'launchToken');assert.equal(decoded.args.length,4);assert.deepEqual(decoded.args[3],[owner,other]);
+ assert.deepEqual(f.simulations[0].args[3],[owner,other]);
+ const plain=await f.protocol.prepareLaunch(owner,{...draft,snipeTaxExemptions:[]});
+ assert.equal(decodeFunctionData({abi:factoryAbi,data:plain.data}).args.length,3);
+ const options=await f.protocol.options(owner);assert.equal(options.snipeTaxSeconds,600);assert.equal(options.snipeTaxStartBps,5000);
+ await assert.rejects(()=>f.protocol.prepareLaunch(owner,{...draft,snipeTaxExemptions:[owner,owner]}),/listed once/);
+ await assert.rejects(()=>f.protocol.prepareLaunch(owner,{...draft,snipeTaxExemptions:Array(33).fill(owner)}),/at most 32/);
 });
 test('trade preparations bind wallet, network, quote lifetime and current launch phase',async()=>{
  const f=fixture(),quote=await f.protocol.quote(owner,{token,side:'buy',amount:'0.01',slippageBps:100});assert.equal(quote.steps.length,1);assert.ok(Number(quote.output)>Number(quote.minimum));

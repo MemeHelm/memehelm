@@ -1,5 +1,5 @@
 export class ApiError extends Error{constructor(message:string,public status:number,public code?:string){super(message);this.name='ApiError';}}
-export async function api<T>(path:string, body?:unknown,signal?:AbortSignal,timeoutMs=path.endsWith('/operations/run')?85000:path==='/watches/brief'?80000:path.includes('copilot')||path.endsWith('/brief')?65000:20000):Promise<T> {
+export async function api<T>(path:string, body?:unknown,signal?:AbortSignal,timeoutMs=path.endsWith('/operations/run')?85000:path==='/watches/brief'?80000:path.includes('copilot')||path.endsWith('/brief')||path==='/launch/assist'||path.endsWith('/chat')?65000:20000):Promise<T> {
   const controller=new AbortController(),abort=()=>controller.abort(signal?.reason);
   if(signal?.aborted)abort();else signal?.addEventListener('abort',abort,{once:true});
   let timedOut=false;const timer=setTimeout(()=>{timedOut=true;controller.abort();},timeoutMs);

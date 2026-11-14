@@ -51,7 +51,7 @@ export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch
       const result={holders:items,holdersCount:info.status==='fulfilled'&&info.value.holders_count!=null?Number(info.value.holders_count):null,holderDataAvailable:list.status==='fulfilled',checkedAt:new Date(now()).toISOString(),fetchedAt:now()};holderCache.set(key,result);if(holderCache.size>200)holderCache.delete(holderCache.keys().next().value);return result;
     });}catch{return{holders:[],holdersCount:null,holderDataAvailable:false,checkedAt:null};}
   }
-  async function observe(input){const[data,holderData]=await Promise.all([details(input),holders(input)]);return{...data,...holderData,checkedAt:data.checkedAt};}
+  async function observe(input){const[data,holderData]=await Promise.all([details(input),holders(input)]);return{...data,...holderData,holdersCheckedAt:holderData.checkedAt,checkedAt:data.checkedAt};}
   async function trades(input){
     if(!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');const token=getAddress(input.toLowerCase()),key=token.toLowerCase(),cached=tradeCache.get(key);if(cached&&now()-cached.fetchedAt<(cached.available?30000:5000))return cached;
     try{return await flight('trades:'+key,limits.trades,async active=>{
@@ -64,5 +64,35 @@ export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch
     });}catch{return{items:[],available:false,fetchedAt:now(),scope:'Recent trade history could not be loaded. Please try again.'};}
   }
   function history(address){return store.read('observations').filter(item=>item.address===address.toLowerCase()&&item.source===source).slice(-500);}
-  return{feed,details,holders,observe,history,trades};
+  async function forensics(input){
+    if(!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');
+    const address=getAddress(input.toLowerCase());
+    const [core,holderData,tradeData]=await Promise.allSettled([details(input),holders(input),trades(input)]);
+    const token=core.status==='fulfilled'?core.value:null,holder=holderData.status==='fulfilled'?holderData.value:null,trade=tradeData.status==='fulfilled'?tradeData.value:null;
+    let launch=null,recipientIsContract=null;
+    try{launch=await protocol.launchRecord(address);}catch{}
+    if(launch){try{const code=await withDeadline(()=>client.getCode({address:launch.creatorFeeRecipient}),3000);recipientIsContract=!!code&&code!=='0x';}catch{recipientIsContract=null;}}
+    const supply=token&&Number(token.totalSupply)>0?BigInt(token.totalSupply):null;
+    const largest=holder&&holder.holderDataAvailable&&supply?[...holder.holders].sort((a,b)=>BigInt(b.balance)>BigInt(a.balance)?1:BigInt(b.balance)<BigInt(a.balance)?-1:0).slice(0,10).map(item=>BigInt(item.balance)):null;
+    const concentration=largest&&supply?{largestCount:largest.length,share:Number(largest.reduce((sum,value)=>sum+value,0n)*10000n/supply)/100,sampled:holder.holders.length,holdersCount:holder.holdersCount,note:'Returned balances may include pools and contracts; the explorer index can lag recent transfers. This is not a whale or ownership verdict.'}:null;
+    const items=trade&&trade.available?trade.items:[];
+    const counted=items.reduce((summary,item)=>{const wallet=String(item.wallet||'').toLowerCase();if(!summary.wallets.has(wallet))summary.wallets.add(wallet);if(item.kind==='buy')summary.buyValue+=Number(item.value||0);else if(item.kind==='sell')summary.sellValue+=Number(item.value||0);return summary;},{buyValue:0,sellValue:0,wallets:new Set()});
+    const observedTrading=trade&&trade.available?{buys:items.filter(item=>item.kind==='buy').length,sells:items.filter(item=>item.kind==='sell').length,distinctWallets:counted.wallets.size,buyValue:counted.buyValue,sellValue:counted.sellValue,currency:trade.currency,coverage:{fromBlock:trade.fromBlock,toBlock:trade.toBlock},partial:!!trade.partial,note:'Direct curve and pool execution events only. Routed trades are attributed to their sending address, which may be a router.'}:null;
+    const deployer=launch?launch.deployer.toLowerCase():null;
+    const launcherActivity=deployer&&trade&&trade.available?{buys:items.filter(item=>item.kind==='buy'&&String(item.wallet||'').toLowerCase()===deployer).length,sells:items.filter(item=>item.kind==='sell'&&String(item.wallet||'').toLowerCase()===deployer).length,note:'Only trades sent directly by the launching wallet within the covered blocks are counted. Trades routed through other addresses cannot be attributed.'}:null;
+    // Material fact flags: plain observations from the checks above, never a safety score or rating.
+    const flags=[];
+    if(launch&&Number(launch.creatorTaxBps)>0)flags.push({id:'creator-fee',label:`Creator fee ${Number(launch.creatorTaxBps)/100}%`});
+    if(recipientIsContract===true)flags.push({id:'fee-recipient-contract',label:'Creator fees flow to a contract'});
+    if(concentration&&concentration.share>=40)flags.push({id:'concentration',label:`Top ${concentration.largestCount} balances hold ${concentration.share.toFixed(0)}%`});
+    if(launcherActivity&&launcherActivity.buys+launcherActivity.sells>0)flags.push({id:'launcher-traded',label:`Launching wallet traded ${launcherActivity.buys+launcherActivity.sells}× in window`});
+    if(!launch)flags.push({id:'unregistered',label:'Not a pons v2 launch'});
+    return {address,checkedAt:new Date(now()).toISOString(),source,
+      registration:launch?{registered:true,phase:launch.phase,pairToken:launch.pairToken,graduationThreshold:String(launch.graduationThreshold),deployer:launch.deployer}:{registered:false,phase:null,pairToken:token?.pairToken||null,graduationThreshold:null,deployer:null},
+      creatorEconomics:launch?{creatorTaxBps:Number(launch.creatorTaxBps),recipient:launch.creatorFeeRecipient,recipientIsContract,buybackEnabled:launch.buybackEnabled}:null,
+      concentration,observedTrading,launcherActivity,flags,
+      scope:'Checks use the current Blockscout holder snapshot and pons/Uniswap v4 execution events from the most recent 20,000 blocks. Missing data is never estimated.',
+      disclaimer:'A basic read of public chain data within the stated coverage. Not an independent audit, a safety rating or financial advice.'};
+  }
+  return{feed,details,holders,observe,history,trades,forensics};
 }

@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto';
+import {projectIntelligence} from './project-intelligence.mjs';
 
 const voices=['story','audience','roadmap','commitments','boundaries'];
 const iso=time=>new Date(time).toISOString(),day=time=>iso(time).slice(0,10);
@@ -36,6 +37,9 @@ export function createOperations(store,{observe,generate,now=()=>Date.now(),with
         if(previous?.phase!==null&&previous?.phase!==undefined&&baseline.phase!==null&&previous.phase!==baseline.phase)events.push({key:`phase:${previous.phase}:${baseline.phase}`,kind:'phase',title:'Launch phase changed',detail:`Pons phase ${previous.phase} → ${baseline.phase}. Review the current launch state before sharing an update.`});
         if(previous?.currency===baseline.currency&&safeNumber(previous.price)>0&&safeNumber(baseline.price)>0){const change=(Number(baseline.price)/Number(previous.price)-1)*100;if(Math.abs(change)>=10)events.push({key:`price:${baseline.checkedAt}`,kind:'price',title:`Observed price changed ${change>0?'+':''}${change.toFixed(1)}%`,detail:`Compared with the previous successful observation in ${baseline.currency}. This is not a 24-hour return.`});}
         if(previous?.holdersCount!=null&&baseline.holdersCount!=null&&previous.holdersCount!==baseline.holdersCount)events.push({key:`holders:${baseline.checkedAt}`,kind:'holders',title:'Observed holder count changed',detail:`${previous.holdersCount} → ${baseline.holdersCount}. Coverage depends on the data source.`});
+        baseline.intelligence=projectIntelligence(data,project.tokenAddress);
+        const before=previous?.intelligence?.distribution,after=baseline.intelligence.distribution;
+        if(before&&after&&before.sampleSize===after.sampleSize&&before.largestCount===after.largestCount&&Math.abs(after.share-before.share)>=2)events.push({key:`distribution:${after.checkedAt}`,kind:'distribution',title:'Largest returned balances changed',detail:`The largest ${after.largestCount} returned balances hold ${after.share.toFixed(2)}% of total supply, compared with ${before.share.toFixed(2)}% previously. This includes possible pool and contract addresses; it is not a whale or ownership verdict.`,source:after.source,previousAt:before.checkedAt,observedAt:after.checkedAt});
         state.baseline=baseline;
       }
       for(const action of state.actions.filter(item=>item.status==='approved'&&item.kind==='task'&&item.dueAt&&Date.parse(item.dueAt)<=observedAt))events.push({key:`due:${action.id}`,kind:'task',title:`Task needs a follow-up: ${action.title}`,detail:'The due date has passed. Record the outcome or update its due date.'});
@@ -69,11 +73,17 @@ export function createOperations(store,{observe,generate,now=()=>Date.now(),with
       }else if(input.action==='dismiss'){if(!['proposed','approved'].includes(item.status))throw fail('This action is already closed.');item.status='dismissed';
       }else if(input.action==='complete'){
         if(item.kind!=='task'||item.status!=='approved')throw fail('Approve this task before recording its outcome.');const outcome=text(input.outcome,2000,'Task outcome');if(!outcome)throw fail('Record what happened before completing the task.');Object.assign(item,{status:'done',outcome,completedAt:iso(now())});state.contextVersion++;
+      }else if(input.action==='shareOutcome'){
+        if(item.kind!=='task'||item.status!=='done'||!item.outcome||input.confirm!==true)throw fail('Review and confirm a completed task outcome before sharing.');
+        if(!currentProject.published||!currentProject.tokenAddress)throw fail('Publish your verified project page first.');
+        if(item.activityId)throw fail('This outcome already has a saved update. Manage its visibility in Writing.',409);
+        const entry={id:randomUUID(),projectId:project.id,kind:'post',source:'creator-outcome',title:item.title,content:item.outcome,createdAt:iso(now()),public:true,revision:0};documents.activity.push(entry);item.activityId=entry.id;
+        const own=documents.activity.filter(record=>record.projectId===project.id),remove=new Set(own.slice(0,Math.max(0,own.length-200)).map(record=>record.id));for(let index=documents.activity.length-1;index>=0;index--)if(remove.has(documents.activity[index].id))documents.activity.splice(index,1);
       }else if(input.action==='publish'){
         if(item.kind!=='update'||item.status!=='approved'||input.confirm!==true)throw fail('Approve and confirm this update before publishing.');if(!currentProject.published||!currentProject.tokenAddress)throw fail('Publish your verified project page from My Projects first.');
         const entry={id:randomUUID(),projectId:project.id,kind:'post',title:item.title,content:item.content,createdAt:iso(now()),public:true,revision:0};documents.activity.push(entry);const own=documents.activity.filter(record=>record.projectId===project.id),remove=new Set(own.slice(0,Math.max(0,own.length-200)).map(record=>record.id));for(let index=documents.activity.length-1;index>=0;index--)if(remove.has(documents.activity[index].id))documents.activity.splice(index,1);Object.assign(item,{status:'done',activityId:entry.id,completedAt:iso(now()),outcome:'Published to the project page.'});state.contextVersion++;
       }else throw fail('Choose an available action.');
-      item.revision++;item.updatedAt=iso(now());trimActions(state);appendLog(state,now(),'action',({edit:'Action updated',approve:'Action approved',dismiss:'Action dismissed',complete:'Task outcome recorded',publish:'Update published'})[input.action],item.title,item.id);
+      item.revision++;item.updatedAt=iso(now());trimActions(state);appendLog(state,now(),'action',({edit:'Action updated',approve:'Action approved',dismiss:'Action dismissed',complete:'Task outcome recorded',publish:'Update published',shareOutcome:'Task outcome shared'})[input.action],item.title,item.id);
     });return present(project);
   }
   async function tick(){if(ticking)return;ticking=true;try{const projects=(await store.projects()).filter(project=>project.chainId===4663&&project.owner),states=store.read('operations'),enabled=projects.filter(project=>states.some(state=>state.projectId===project.id&&state.owner===project.owner&&state.settings.enabled&&(!state.nextCheckAt||Date.parse(state.nextCheckAt)<=now())));const start=enabled.length?(enabled.findIndex(project=>project.id===lastProjectId)+1)%enabled.length:0;for(let i=0;i<Math.min(enabled.length,5);i++){const project=enabled[(start+i)%enabled.length];lastProjectId=project.id;if(running.has(project.id))continue;try{const state=present(project);if(state.settings.autoDraft&&state.usage.remaining>0&&configured())await run(project,{requestId:randomUUID(),source:'scheduled'});else await check(project);}catch{await mutate(project,state=>{state.nextCheckAt=iso(now()+state.settings.intervalHours*3600000);});}}}finally{ticking=false;}}

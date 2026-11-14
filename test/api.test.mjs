@@ -18,7 +18,8 @@ test('local API persists drafts and rejects hostile-origin writes',async()=>{
   const hostile=await post('https://untrusted.example',{name:'Hostile',symbol:'BAD'});assert.equal(hostile.status,400);
   assert.equal((await fetch(`${endpoint}/api/projects`)).status,401);
   assert.deepEqual(await (await alice.get('/projects')).json(),[]);
-  const valid=await post('http://127.0.0.1:4317',{name:'Orbit Club',symbol:'ORBIT',description:'An English test project.'});assert.equal(valid.status,201);const project=await valid.json();assert.equal(project.status,'draft');assert.equal(project.chainId,4663);
+  const valid=await post('http://127.0.0.1:4317',{name:'Orbit Club',symbol:'ORBIT',description:'An English test project.',draft:{name:'Orbit Club',symbol:'ORBIT',description:'An English test project.',creatorFeeRecipient:alice.account.address,snipeTaxExemptions:[alice.account.address,alice.account.address.toLowerCase(),'0xnotanaddress']}});assert.equal(valid.status,201);const project=await valid.json();assert.equal(project.status,'draft');assert.equal(project.chainId,4663);
+  assert.deepEqual(project.draft.snipeTaxExemptions,[alice.account.address]);
   const list=await (await alice.get('/projects')).json();assert.equal(list.length,1);assert.equal(list[0].id,project.id);
   assert.equal(project.owner,alice.account.address.toLowerCase());
   assert.deepEqual(await (await bob.get('/projects')).json(),[]);
