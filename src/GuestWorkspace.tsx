@@ -1,9 +1,11 @@
 import {useState} from 'react';
 import {Arrow} from './Brand';
 import {DesktopIcon} from './Desktop';
+import {CopilotEntry} from './CopilotEntry';
 import type {Page} from './types';
 
 const examples=[
+  {label:'AI chat',title:'Chat with your project’s AI.',body:''},
   {label:'Project memory',title:'Keep the project’s context.',body:'Purpose: a community for builders sharing useful work.\n\nPriority: prepare the next community demo.\n\nCommitment: share verified progress and answer open questions.\n\nBoundary: keep contributor contact details private.'},
   {label:'Action review',title:'Decide what happens next.',body:'Suggested task: collect demo submissions.\n\nReason: build the next update from actual community contributions.\n\nReview the proposal, approve it, and record what happened. An update only becomes public after your separate confirmation.'},
   {label:'Social post',title:'Start a conversation.',body:'Orbit Club is for builders who keep showing up. What are you working on this week? Share one small win with the community.'},
@@ -31,11 +33,10 @@ export function GuestWorkspace({page,connect,navigate}:{page:Page;connect:()=>Pr
   </div>;
 
   return <div className="guest-workspace guest-copilot">
-    <header className="guest-page-heading"><div><h1>AI Copilot</h1><p>Project memory, proposed actions and outcomes, with writing tools built in.</p></div></header>
-    <div className="copilot-signin-bar"><span><LockIcon/>Sign in to run your project’s private workspace.</span><button className="button primary" onClick={connect}>Sign in with wallet <Arrow/></button></div>
-    <section className="copilot-sample" aria-label="Copilot content examples"><div className="copilot-sample-toolbar"><div className="example-tabs" aria-label="Example draft type">{examples.map((item,i)=><button key={item.label} aria-pressed={example===i} onClick={()=>setExample(i)}>{item.label}</button>)}</div><span className="sample-label">Example</span></div>
-      <div className="copilot-sample-document"><div className="sample-project"><span>OC</span><div><strong>Orbit Club</strong><small>Illustrative project</small></div></div><h2>{examples[example].title}</h2><p>{examples[example].body}</p></div>
-      <footer><span>Illustrative content. Your drafts stay private until you share them.</span><button className="text-button" onClick={()=>navigate('launch')}>Open Launchpad <Arrow/></button></footer>
+    <header className="guest-page-heading"><div><h1>AI Copilot</h1><p>Chat about your coin. Keep project context. Review your next moves.</p></div></header>
+    <section className="copilot-sample" aria-label="Explore AI Copilot"><div className="copilot-sample-toolbar"><div className="example-tabs" aria-label="Copilot previews">{examples.map((item,i)=><button key={item.label} aria-pressed={example===i} onClick={()=>setExample(i)}>{item.label}</button>)}</div><span className="sample-label">{example===0?'Preview':'Example'}</span></div>
+      {example===0?<CopilotEntry mode="guest" signIn={connect}/>:<div className="copilot-sample-document"><div className="sample-project"><span>OC</span><div><strong>Orbit Club</strong><small>Illustrative project</small></div></div><h2>{examples[example].title}</h2><p>{examples[example].body}</p><button className="button primary copilot-example-signin" onClick={connect}>Sign in to use Copilot <Arrow/></button></div>}
+      <footer><span>{example===0?'Chat uses your selected project’s context and available observations.':'Illustrative content. Your drafts stay private until you share them.'}</span><button className="text-button" onClick={()=>navigate('launch')}>Open Launchpad <Arrow/></button></footer>
     </section>
   </div>;
 }

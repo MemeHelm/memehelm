@@ -11,3 +11,9 @@ contracts/out/
 contracts/cache/
 *.log
 qa/
+
+# Local visual reviews, shared-preview archives and browser profiles.
+.impeccable/review/
+.trae-html-share-packages/
+/2026-11-14/
+/test-out.txt

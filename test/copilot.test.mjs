@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateCopilot } from '../server/copilot.mjs';
+import { generateCopilot,parseSocialDraft } from '../server/copilot.mjs';
+test('social post text is validated separately from its private factual basis',()=>{
+  const postText='x'.repeat(275),factualBasis='Private factual explanation. '.repeat(20);
+  assert.deepEqual(parseSocialDraft(JSON.stringify({postText,factualBasis})),{content:postText,postText,factualBasis:factualBasis.trim()});
+  assert.equal(parseSocialDraft(JSON.stringify({postText:'😀'.repeat(280),factualBasis:'Supplied project description.'})).postText.length,560);
+  for(const content of ['not JSON',JSON.stringify({postText:'x'.repeat(281),factualBasis:'Facts'}),JSON.stringify({postText:'Text only'}),JSON.stringify({postText:' ',factualBasis:'Facts'})])assert.throws(()=>parseSocialDraft(content),error=>error.code==='AI_RESPONSE_INVALID');
+});
+test('a generated social draft exposes only its post text as publishable content',async()=>{
+  const saved={...process.env};Object.assign(process.env,{AI_API_BASE:'https://model.example/v1',AI_API_KEY:'local-test-secret',AI_MODEL:'test-model'});
+  try{const result=await generateCopilot({project:{name:'Orbit',symbol:'ORB'},facts:{},task:'post'},async(_url,options)=>{
+    assert.match(JSON.parse(options.body).messages[1].content,/factualBasis/);
+    return Response.json({choices:[{message:{content:JSON.stringify({postText:'Tell us one useful thing you built this week.',factualBasis:'A draft question based on the supplied community goal.'})}}]});
+  });assert.equal(result.content,result.postText);assert.ok(!result.content.includes('supplied community goal'));assert.match(result.factualBasis,/supplied community goal/);}
+  finally{process.env=saved;}
+});
 test('an unconfigured model fails explicitly instead of generating a fake draft',async()=>{
  const saved={...process.env};delete process.env.AI_API_KEY;
  try{await assert.rejects(()=>generateCopilot({project:{},facts:null,task:'post'}),/temporarily unavailable/);}finally{process.env=saved;}

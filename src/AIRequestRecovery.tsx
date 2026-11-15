@@ -1,0 +1,9 @@
+import {useState} from 'react';
+import {DraftText} from './DraftText';
+
+export function AIRequestRecovery({inspect,restart,disabled=false,label}:{inspect:()=>Promise<string>;restart:()=>Promise<void>;disabled?:boolean;label:'chats'|'drafts'}){
+  const [checking,setChecking]=useState(false),[checked,setChecked]=useState(false),[saved,setSaved]=useState(''),[starting,setStarting]=useState(false),[error,setError]=useState('');
+  async function check(){setChecking(true);setError('');setChecked(false);try{setSaved(await inspect());}catch(reason){setError(reason instanceof Error?reason.message:'Saved work could not be checked. Try again.');}finally{setChecking(false);}}
+  async function start(){if(!checked||starting||disabled)return;setStarting(true);setError('');try{await restart();}catch(reason){setError(reason instanceof Error?reason.message:'A new request could not be started. Your saved work is unchanged.');}finally{setStarting(false);}}
+  return <div className="ai-request-recovery"><p>Your earlier request may have saved work. Check it before starting another request, which uses your AI allowance.</p><button className="button secondary" disabled={disabled||checking||starting} onClick={check}>{checking?'Checking saved work…':`Check saved ${label}`}</button>{saved&&<details open><summary>Saved work to review</summary><DraftText text={saved}/></details>}{error&&<p role="alert">{error}</p>}<label className="checkbox"><input type="checkbox" checked={checked} disabled={!saved||disabled||checking||starting} onChange={event=>setChecked(event.target.checked)}/><span>I checked saved work and want to make a new AI request.</span></label><button className="button secondary" disabled={!checked||disabled||checking||starting} onClick={start}>{starting?'Starting…':'Start a new request'}</button></div>;
+}

@@ -1,11 +1,11 @@
 import {useEffect,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
-import {api} from './api';
+import {api,setApiWalletScope} from './api';
 import {connectWallet,signInMessage} from './wallet';
 export function WalletSession({children}:{children:(wallet:string,connect:()=>Promise<void>,logout:()=>Promise<void>,signing:boolean)=>ReactNode}){
   const [wallet,setWallet]=useState(''),[error,setError]=useState(''),[signing,setSigning]=useState(false);
   const current=useRef(''),epoch=useRef(0),locked=useRef(false);
-  function select(address:string){current.current=address;setWallet(address);}
+  function select(address:string){current.current=address;setApiWalletScope(address);setWallet(address);}
   async function logout(){epoch.current++;select('');await api('/auth/logout',{}).catch(()=>{});}
   useEffect(()=>{let active=true;const started=epoch.current;api<{address:string|null}>('/auth/session').then(async session=>{if(!session.address)return;const injected=window.ethereum;if(injected){const accounts=await injected.request({method:'eth_accounts'});if(accounts[0]?.toLowerCase()!==session.address.toLowerCase()){if(active)await logout();return;}}if(active&&epoch.current===started)select(session.address);}).catch(()=>{});
     const changed=(accounts:string[])=>{epoch.current++;if(current.current&&accounts[0]?.toLowerCase()!==current.current.toLowerCase()){select('');api('/auth/logout',{}).catch(()=>{});setError('Wallet changed. Sign in to open its private workspace.');}};

@@ -1,27 +1,38 @@
 import {useEffect,useRef,useState} from 'react';
-import {api} from './api';
+import {api,saveFile,ApiError,resetAIRequest} from './api';
+import {AIRequestRecovery} from './AIRequestRecovery';
+import {AssistantActions} from './AssistantActions';
 import type {ChatSummary,ChatRecord,ChatReply,ChatTurn,Project,TokenIntel,IntelForensics} from './types';
 import './workflows.css';
 
 const suggestions=['Summarize today’s observed facts.','What changed since the last observation?','Which addresses hold the largest returned balances?','Review the trades observed in the last 20,000 blocks.'];
 const when=(value:string)=>new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 const amount=(value:string|null|undefined,max=6)=>value===null||value===undefined?'Unavailable':Number(value).toLocaleString('en-US',{maximumSignificantDigits:max});
-type Props={project:Project;available:boolean};
-export function ProjectChat({project,available}:Props){
+type ChatPage=ChatRecord&{hasMore?:boolean;before?:number|null;totalMessages?:number};
+type ChatList={items:ChatSummary[];hasMore?:boolean;nextOffset?:number|null};
+type Props={project:Project;available:boolean;onBlocked?:(blocked:boolean)=>void};
+export function ProjectChat({project,available,onBlocked}:Props){
   const [chats,setChats]=useState<ChatSummary[]>([]),[activeChatId,setActiveChatId]=useState(''),[messages,setMessages]=useState<ChatTurn[]>([]),[input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[coverage,setCoverage]=useState<ChatReply['coverage']>(null),[removing,setRemoving]=useState('');
+  const [opening,setOpening]=useState(false),[olderBusy,setOlderBusy]=useState(false),[before,setBefore]=useState<number|null>(null),[moreChats,setMoreChats]=useState(false),[listOffset,setListOffset]=useState<number|null>(null),[listBusy,setListBusy]=useState(false),[failedQuestion,setFailedQuestion]=useState(''),[exporting,setExporting]=useState(false);
+  const selection=useRef(0),alive=useRef(true),skipScroll=useRef(false),requesting=useRef(false);
+  const [recoveryCode,setRecoveryCode]=useState('');
+  const failedRequest=useRef<{chatId:string|undefined;content:string}|null>(null);
   const identity=useRef(project.id);identity.current=project.id;
   const end=useRef<HTMLDivElement|null>(null);
   const [intelVersion,setIntelVersion]=useState(0);
-  useEffect(()=>{end.current?.scrollIntoView({behavior:'smooth',block:'nearest'});},[messages,busy]);
+  const [actionMode,setActionMode]=useState(false),[actionBlocked,setActionBlocked]=useState(false);
+  useEffect(()=>{if(skipScroll.current){skipScroll.current=false;return;}end.current?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'nearest'});},[messages,busy]);
+  useEffect(()=>{onBlocked?.(busy||!!input.trim()||actionBlocked);return()=>onBlocked?.(false);},[busy,input,actionBlocked,onBlocked]);
   useEffect(()=>{
+    alive.current=true;
     const id=project.id,controller=new AbortController();
-    setChats([]);setActiveChatId('');setMessages([]);setInput('');setError('');setCoverage(null);setBusy(false);setRemoving('');
-    api<{items:ChatSummary[]}>(`/projects/${id}/chats`,undefined,controller.signal).then(({items})=>{
+    setChats([]);setActiveChatId('');setMessages([]);setInput('');setError('');setCoverage(null);setBusy(false);setRemoving('');setOpening(true);setBefore(null);setActionMode(false);setActionBlocked(false);
+    api<ChatList>(`/projects/${id}/chats?limit=20`,undefined,controller.signal).then(({items,hasMore,nextOffset})=>{
       if(identity.current!==id||controller.signal.aborted)return;
-      setChats(items);
-      if(items[0])api<ChatRecord>(`/projects/${id}/chats/${items[0].id}`,undefined,controller.signal).then(record=>{if(identity.current===id&&!controller.signal.aborted){setMessages(record.messages);setActiveChatId(record.id);}}).catch(()=>{});
-    }).catch(reason=>{if(identity.current===id&&!controller.signal.aborted)setError(reason.message);});
-    return()=>controller.abort();
+      setChats(items);setMoreChats(!!hasMore);setListOffset(nextOffset??null);
+      if(items[0]){const epoch=++selection.current;api<ChatPage>(`/projects/${id}/chats/${items[0].id}?limit=40`,undefined,controller.signal).then(record=>{if(identity.current===id&&!controller.signal.aborted&&selection.current===epoch){setMessages(record.messages);setActiveChatId(record.id);setBefore(record.hasMore?record.before??null:null);}}).catch(reason=>{if(!controller.signal.aborted)setError(reason.message);}).finally(()=>{if(!controller.signal.aborted&&selection.current===epoch)setOpening(false);});}else setOpening(false);
+    }).catch(reason=>{if(identity.current===id&&!controller.signal.aborted){setError(reason.message);setOpening(false);}});
+    return()=>{alive.current=false;selection.current++;controller.abort();};
   },[project.id]);
   const [token,setToken]=useState<TokenIntel|null>(null),[xray,setXray]=useState<IntelForensics|null>(null),[intelError,setIntelError]=useState('');
   useEffect(()=>{
@@ -39,19 +50,43 @@ export function ProjectChat({project,available}:Props){
     return()=>controller.abort();
   },[project.id,project.tokenAddress,intelVersion]);
   async function refreshChats(signal?:AbortSignal){
-    const id=project.id,{items}=await api<{items:ChatSummary[]}>(`/projects/${id}/chats`,undefined,signal);
-    if(identity.current===id)setChats(items);
+    const id=project.id,{items,hasMore,nextOffset}=await api<ChatList>(`/projects/${id}/chats?limit=20`,undefined,signal);
+    if(identity.current===id&&alive.current){setChats(items);setMoreChats(!!hasMore);setListOffset(nextOffset??null);}
   }
   async function openChat(chatId:string){
-    const id=project.id;
+    if(busy||input.trim()||actionBlocked)return;const id=project.id,epoch=++selection.current;setOpening(true);setError('');
     try{
-      const record=await api<ChatRecord>(`/projects/${id}/chats/${chatId}`);
-      if(identity.current!==id)return;
-      setMessages(record.messages);setActiveChatId(chatId);setCoverage(null);setError('');
-    }catch(reason:any){if(identity.current===id)setError(reason.message);}
+      const record=await api<ChatPage>(`/projects/${id}/chats/${chatId}?limit=40`);
+      if(identity.current!==id||!alive.current||selection.current!==epoch)return;
+      setMessages(record.messages);setActiveChatId(chatId);setBefore(record.hasMore?record.before??null:null);setCoverage(null);setFailedQuestion('');
+    }catch(reason:any){if(identity.current===id&&alive.current&&selection.current===epoch)setError(reason.message);}
+    finally{if(alive.current&&selection.current===epoch)setOpening(false);}
+  }
+  async function loadOlder(){
+    if(before===null||olderBusy||busy||opening)return;const id=project.id,chatId=activeChatId,epoch=selection.current;setOlderBusy(true);setError('');
+    try{const page=await api<ChatPage>(`/projects/${id}/chats/${chatId}?limit=40&before=${before}`);if(!alive.current||selection.current!==epoch)return;skipScroll.current=true;setMessages(current=>[...page.messages,...current]);setBefore(page.hasMore?page.before??null:null);}
+    catch(reason:any){if(alive.current&&selection.current===epoch)setError(reason.message);}finally{if(alive.current)setOlderBusy(false);}
+  }
+  async function loadMoreChats(){
+    if(!moreChats||listOffset===null||listBusy)return;setListBusy(true);setError('');
+    try{const page=await api<ChatList>(`/projects/${project.id}/chats?limit=20&offset=${listOffset}`);if(!alive.current)return;setChats(current=>[...current,...page.items.filter(item=>!current.some(existing=>existing.id===item.id))]);setMoreChats(!!page.hasMore);setListOffset(page.nextOffset??null);}
+    catch(reason:any){if(alive.current)setError(reason.message);}finally{if(alive.current)setListBusy(false);}
+  }
+  async function exportChat(){
+    if(!activeChatId||exporting)return;setExporting(true);setError('');try{const record=await api<ChatRecord>(`/projects/${project.id}/chats/${activeChatId}/export`);if(alive.current)saveFile(`${project.symbol.toLowerCase()}-chat-${record.id}.json`,record);}catch(reason:any){if(alive.current)setError(reason.message);}finally{if(alive.current)setExporting(false);}
+  }
+  async function inspectSavedChats(){
+    const list=await api<ChatList>(`/projects/${project.id}/chats?limit=20`);setChats(list.items);setMoreChats(!!list.hasMore);setListOffset(list.nextOffset??null);
+    const ids=failedRequest.current?.chatId?[failedRequest.current.chatId]:list.items.slice(0,3).map(item=>item.id);
+    if(!ids.length)return 'No saved conversations were found for this project.';
+    const pages=await Promise.all(ids.map(chatId=>api<ChatPage>(`/projects/${project.id}/chats/${chatId}?limit=4`)));
+    return 'Most recent saved messages. Open the conversation or download its full history if you need more context.\n\n'+pages.map(page=>page.messages.map(turn=>(turn.role==='user'?'You: ':'Assistant: ')+turn.content).join('\n\n')).join('\n\n——\n\n');
+  }
+  async function startFreshQuestion(){
+    const failed=failedRequest.current;if(!failed)return;await resetAIRequest(`/projects/${project.id}/chat`,failed);setInput(failed.content);await send(failed.content);
   }
   async function removeChat(chatId:string){
-    if(removing||busy)return;
+    if(removing||busy||actionBlocked)return;
     const id=project.id;setRemoving(chatId);setError('');
     try{
       await api(`/projects/${id}/chats/remove`,{chatId});
@@ -61,37 +96,41 @@ export function ProjectChat({project,available}:Props){
     }catch(reason:any){if(identity.current===id)setError(reason.message);}
     finally{if(identity.current===id)setRemoving('');}
   }
-  function newChat(){setActiveChatId('');setMessages([]);setCoverage(null);setError('');}
+  function newChat(){if(busy||input.trim()||actionBlocked)return;selection.current++;setOpening(false);setActiveChatId('');setMessages([]);setBefore(null);setCoverage(null);setError('');setFailedQuestion('');}
   async function send(question:string){
-    const text=question.trim();if(busy||!text||!available)return;
+    const text=question.trim();if(requesting.current||busy||opening||!text||!available)return;requesting.current=true;
     const id=project.id,optimistic={role:'user',content:text.slice(0,4000),createdAt:new Date().toISOString()} as ChatTurn,chatId=activeChatId;
-    setMessages(current=>[...current,optimistic]);setInput('');setBusy(true);setError('');
+    setMessages(current=>[...current,optimistic]);setInput('');setBusy(true);setError('');setFailedQuestion('');setRecoveryCode('');
     try{
-      const result=await api<ChatReply>(`/projects/${id}/chat`,{chatId:chatId||undefined,content:text.slice(0,4000)});
-      if(identity.current!==id)return;
+      const result=await api<ChatReply&{hasMore?:boolean;before?:number|null}>(`/projects/${id}/chat`,{chatId:chatId||undefined,content:text.slice(0,4000)});
+      if(identity.current!==id||!alive.current)return;
       setMessages(result.messages);setActiveChatId(result.chatId);setCoverage(result.coverage);
+      setBefore(result.hasMore?result.before??null:null);
       refreshChats().catch(()=>{});setIntelVersion(value=>value+1);
-    }catch(reason:any){if(identity.current===id){setError(reason.message);setMessages(current=>current.filter(turn=>turn!==optimistic));}}
-    finally{if(identity.current===id)setBusy(false);}
+    }catch(reason:any){if(identity.current===id&&alive.current){setError(reason.message);setMessages(current=>current.filter(turn=>turn!==optimistic));setInput(text);setFailedQuestion(text);failedRequest.current={chatId:chatId||undefined,content:text.slice(0,4000)};setRecoveryCode(reason instanceof ApiError?reason.code||'':'');}}
+    finally{requesting.current=false;if(identity.current===id&&alive.current)setBusy(false);}
   }
   const assistant=project.aiName||'Copilot';
   return <div className="chat-workspace"><section className="panel chat-panel" aria-label="Project chat">
-    <div className="section-title"><h2>Chat with {assistant}</h2>{(messages.length>0||activeChatId)&&!busy&&<button className="text-button" onClick={newChat}>New chat</button>}</div>
-    <p className="panel-copy">{assistant} answers only from observed chain facts, X-Ray checks, recent trades and your saved project context. Missing data is reported as missing, and nothing is ever executed.</p>
-    <div className="chat-thread" role="log" aria-live="polite">
+    <div className="section-title"><h2>Chat with {assistant}</h2><div className="button-row">{activeChatId&&<button className="text-button" disabled={exporting||busy||opening} onClick={exportChat}>{exporting?'Preparing download…':'Download chat'}</button>}{(messages.length>0||activeChatId)&&!busy&&<button className="text-button" disabled={opening||!!input.trim()} onClick={newChat}>New chat</button>}</div></div>
+    <p className="panel-copy">{assistant} uses observed chain facts and saved project context. Ask a question, or turn an idea into private drafts you review before creating. Payouts always need a separate review and wallet signature.</p>
+    <div className="chat-mode-switch" role="group" aria-label="Assistant mode"><button type="button" aria-pressed={!actionMode} disabled={busy||actionBlocked} onClick={()=>setActionMode(false)}>Ask a question</button><button type="button" aria-pressed={actionMode} disabled={busy||!!input.trim()} onClick={()=>setActionMode(true)}>Plan an action</button></div>
+    {actionMode?<AssistantActions key={project.id} projectId={project.id} chatId={activeChatId||undefined} available={available} onBlocked={setActionBlocked}/>:<>
+    <div className="chat-thread" role="log" aria-live="polite">{before!==null&&<button className="button secondary" disabled={olderBusy||busy||opening} onClick={loadOlder}>{olderBusy?'Loading earlier messages…':'Load earlier messages'}</button>}{opening&&<p role="status" className="data-note">Opening your conversation…</p>}
       {messages.length===0&&!busy&&<div className="chat-empty"><strong>Ask about your project.</strong><p>Prices and phase, holders, recent trades, launch settings, revenue — or what changed since the last check.</p></div>}
       {messages.map((turn,index)=><div key={index} className={`chat-bubble ${turn.role}`}><span className="chat-author">{turn.role==='user'?'You':assistant}<time>{when(turn.createdAt)}</time></span><div className="chat-content">{turn.content}</div>{turn.role==='assistant'&&coverage&&index===messages.length-1&&<p className="chat-coverage">Facts observed {when(coverage.checkedAt)}{coverage.fromBlock?`, blocks ${Number(coverage.fromBlock).toLocaleString('en-US')}–${Number(coverage.toBlock).toLocaleString('en-US')}`:''}. {coverage.note}</p>}</div>)}
       {busy&&<div className="chat-bubble assistant"><span className="chat-author">{assistant}</span><div className="chat-content chat-pending"><span className="spinner"/>Reading the observed facts…</div></div>}
       <div ref={end}/>
     </div>
-    {error&&<div className="notice error" role="alert">{error}</div>}
+    {error&&<div className="notice error" role="alert"><span>{error}</span>{failedQuestion&&(['AI_REQUEST_INTERRUPTED','AI_REQUEST_FAILED'].includes(recoveryCode)?<AIRequestRecovery key={recoveryCode+failedQuestion} label="chats" disabled={busy||!available} inspect={inspectSavedChats} restart={startFreshQuestion}/>:<button className="button secondary" disabled={busy||!available||input.trim()!==failedQuestion} onClick={()=>send(failedQuestion)}>Retry question</button>)}</div>}
     {!available&&<p className="inline-note">Chat is temporarily unavailable. Your saved project data is still here.</p>}
     <form className="chat-composer" onSubmit={event=>{event.preventDefault();send(input);}}>
-      <textarea rows={2} maxLength={4000} value={input} placeholder={`Ask ${assistant} about $${project.symbol}…`} disabled={busy||!available} onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send(input);}}}/>
-      <button className="button primary" type="submit" disabled={busy||!available||!input.trim()}>{busy?'Answering…':'Send'}</button>
-    </form>
-    <div className="chat-suggestions">{suggestions.map(suggestion=><button key={suggestion} type="button" disabled={busy||!available} onClick={()=>send(suggestion)}>{suggestion}</button>)}</div>
+      <textarea rows={2} maxLength={4000} value={input} placeholder={`Ask ${assistant} about $${project.symbol}…`} disabled={busy||opening||!available} onChange={event=>setInput(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send(input);}}}/>
+      <button className="button primary" type="submit" disabled={busy||opening||!available||!input.trim()}>{busy?'Answering…':'Send'}</button>
+    </form>{input.trim()&&<button className="text-button" disabled={busy} onClick={()=>{setInput('');setFailedQuestion('');setError('');}}>Discard unsent question</button>}
+    <div className="chat-suggestions">{suggestions.map(suggestion=><button key={suggestion} type="button" disabled={busy||opening||!!input.trim()||!available} onClick={()=>send(suggestion)}>{suggestion}</button>)}</div>
     <p className="ai-privacy-note">Market and holder facts cover the most recent 20,000 blocks and the explorer’s current snapshot. This is a bounded read, not an audit or financial advice.</p>
+    </>}
   </section>
   <aside className="chat-side">
     <section className="panel intel-panel" aria-label="Live observations">
@@ -110,9 +149,11 @@ export function ProjectChat({project,available}:Props){
       <p className="data-note">{xray?.observedTrading?`Blocks ${Number(xray.observedTrading.coverage.fromBlock).toLocaleString('en-US')}–${Number(xray.observedTrading.coverage.toBlock).toLocaleString('en-US')}. `:''}{token?.checkedAt?`Price observed ${when(token.checkedAt)}. `:''}{xray?.checkedAt?`Checks observed ${when(xray.checkedAt)}.`:''}A bounded read, not an audit. No price predictions.</p></>}
     </section>
     <section className="panel chats-panel" aria-label="Open chats">
-      <div className="section-title"><h3>Open chats <span className="count">{chats.length}</span></h3><button className="text-button" disabled={busy||removing!==''} onClick={newChat}>New chat</button></div>
+      <div className="section-title"><h3>Open chats <span className="count">{chats.length}</span></h3><button className="text-button" disabled={busy||opening||!!input.trim()||actionBlocked||removing!==''} onClick={newChat}>New chat</button></div>
       {chats.length===0?<p className="data-note">Your saved conversations stay in this workspace. Ask your first question to start one.</p>
-      :<div className="chat-history-list">{chats.map(chat=><div key={chat.id} className={`chat-history-item ${chat.id===activeChatId?'active':''}`}><button type="button" disabled={busy||removing!==''} onClick={()=>{if(chat.id!==activeChatId)openChat(chat.id);}}><strong>{chat.preview||'Untitled chat'}</strong><small>{chat.messageCount} messages · {when(chat.updatedAt)}</small></button><button type="button" className="chat-history-remove" aria-label={'Delete chat: '+(chat.preview||'Untitled chat')} disabled={removing!==''||busy} onClick={()=>removeChat(chat.id)}>{removing===chat.id?'Deleting…':'Delete'}</button></div>)}</div>}
+      :<div className="chat-history-list">{chats.map(chat=><div key={chat.id} className={`chat-history-item ${chat.id===activeChatId?'active':''}`}><button type="button" disabled={busy||opening||!!input.trim()||actionBlocked||removing!==''} onClick={()=>{if(chat.id!==activeChatId)openChat(chat.id);}}><strong>{chat.preview||'Untitled chat'}</strong><small>{chat.messageCount} messages · {when(chat.updatedAt)}</small></button><button type="button" className="chat-history-remove" aria-label={'Delete chat: '+(chat.preview||'Untitled chat')} disabled={removing!==''||busy||opening||!!input.trim()||actionBlocked} onClick={()=>removeChat(chat.id)}>{removing===chat.id?'Deleting…':'Delete'}</button></div>)}</div>}
+      {moreChats&&<button className="button secondary" disabled={listBusy||busy||opening||!!input.trim()} onClick={loadMoreChats}>{listBusy?'Loading conversations…':'Load more conversations'}</button>}
+      <p className="data-note">Saved chats remain until you delete them. Longer conversations open with the latest 40 messages; earlier messages and full downloads stay available.</p>
     </section>
   </aside></div>;
 }

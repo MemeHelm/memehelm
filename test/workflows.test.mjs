@@ -27,7 +27,7 @@ test('AI history persists concurrently and private drafts require explicit publi
   const saved={...process.env},originalFetch=globalThis.fetch,originalChainId=publicClient.getChainId,originalCode=publicClient.getCode,originalReadContract=publicClient.readContract,originalLaunchRecord=pons.launchRecord;let server;
   try{
     process.env.DATA_DIRECTORY=directory;Object.assign(process.env,{AI_API_BASE:'https://model.example/v1',AI_API_KEY:'local-test-secret',AI_MODEL:'test-model'});
-    let calls=0;globalThis.fetch=async(input,options)=>{if(String(input).startsWith('https://model.example/')){calls++;return new Response(JSON.stringify({choices:[{message:{content:'A private draft based on the project story.'}}]}),{status:200});}return originalFetch(input,options);};
+    let calls=0;globalThis.fetch=async(input,options)=>{if(String(input).startsWith('https://model.example/')){calls++;return new Response(JSON.stringify({choices:[{message:{content:JSON.parse(options.body).messages[1].content.includes('postText')?JSON.stringify({postText:'A private draft based on the project story.',factualBasis:'Based only on the supplied community story.'}):'A private draft based on the project story.'}}]}),{status:200});}return originalFetch(input,options);};
     ({server}=await import(`../server/index.mjs?workflow-test=${Date.now()}`));server.listen(0,'127.0.0.1');await once(server,'listening');const endpoint=`http://127.0.0.1:${server.address().port}`;
     const client=await signedClient(endpoint,undefined,originalFetch),post=client.post;
     const created=await (await post('/projects',{...valid,draft:valid})).json();

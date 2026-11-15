@@ -3,6 +3,7 @@ import {api} from './api';
 import {DesktopIcon,apps} from './Desktop';
 import type {LaunchItem} from './MarketWorkspace';
 import type {Page,Project} from './types';
+import {useModalFocus} from './useModalFocus';
 
 type Result={kind:'page'|'project'|'token'|'lookup';id:string;title:string;sub:string;action:()=>void};
 type Props={navigate:(page:Page)=>void;projects:Project[];openProject:(id:string)=>void;close:()=>void};
@@ -10,7 +11,8 @@ const kindLabels={page:'Page',project:'Your project',token:'Recent launch',looku
 
 export function SearchPalette({navigate,projects,openProject,close}:Props){
   const [query,setQuery]=useState(''),[active,setActive]=useState(0),[launches,setLaunches]=useState<LaunchItem[]|null>(null),[unavailable,setUnavailable]=useState(false);
-  const input=useRef<HTMLInputElement>(null),list=useRef<HTMLDivElement>(null);
+  const input=useRef<HTMLInputElement>(null),list=useRef<HTMLDivElement>(null),panel=useRef<HTMLElement>(null);
+  useModalFocus(panel,close);
   useEffect(()=>{input.current?.focus();setUnavailable(false);const controller=new AbortController();api<{items:LaunchItem[]}>('/market/launches',undefined,controller.signal).then(data=>setLaunches(data.items)).catch(()=>setUnavailable(true));return()=>controller.abort();},[]);
   function openToken(address:string){close();navigate('discover');history.pushState({},'','#app/discover/'+address);window.dispatchEvent(new HashChangeEvent('hashchange'));}
   const q=query.trim().toLowerCase();
@@ -21,7 +23,7 @@ export function SearchPalette({navigate,projects,openProject,close}:Props){
   const results:Result[]=[...lookup,...pages,...yours,...tokens].slice(0,15);
   useEffect(()=>{setActive(0);},[query]);
   useEffect(()=>{list.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({block:'nearest'});},[active]);
-  return <div className="search-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)close();}}><section className="search-palette" role="dialog" aria-modal="true" aria-label="Search MemeHelm">
+  return <div className="search-overlay" onMouseDown={event=>{if(event.target===event.currentTarget)close();}}><section ref={panel} tabIndex={-1} className="search-palette" role="dialog" aria-modal="true" aria-label="Search MemeHelm">
     <div className="search-input"><span aria-hidden="true">⌕</span><input ref={input} value={query} placeholder="Search pages, your projects and recent launches…" aria-label="Search MemeHelm" onChange={event=>setQuery(event.target.value)} onKeyDown={event=>{if(event.key==='Escape')close();else if(event.key==='ArrowDown'){event.preventDefault();setActive(value=>Math.min(value+1,results.length-1));}else if(event.key==='ArrowUp'){event.preventDefault();setActive(value=>Math.max(value-1,0));}else if(event.key==='Enter'&&results[active]){event.preventDefault();results[active].action();}}}/><button className="text-button" onClick={close}>Esc</button></div>
     <div className="search-results" ref={list} role="listbox">
       {results.length===0?<p className="search-empty">{unavailable?'Recent launches could not be loaded. Search your pages and projects, or paste a token address.':`No matches for “${query}”. Paste a 0x token address to look it up.`}</p>

@@ -44,6 +44,7 @@ test('token forensics reports bounded observations with coverage, never scores',
   try{
     const market=createMarket(store,{client,protocol,fetcher,now:()=>1800000000000}),report=await market.forensics(token);
     assert.equal(report.registration.registered,true);assert.equal(report.registration.phase,0);
+    assert.equal(report.registration.graduationThreshold,'0.42');assert.equal(report.registration.graduationCurrency,'ETH');assert.equal(report.registration.graduationThresholdRaw,'420000000000000000');
     assert.equal(report.creatorEconomics.creatorTaxBps,200);assert.equal(report.creatorEconomics.recipientIsContract,false);assert.equal(report.creatorEconomics.buybackEnabled,false);
     assert.equal(report.concentration.share,40);assert.equal(report.concentration.largestCount,2);assert.equal(report.concentration.holdersCount,12);
     assert.match(report.concentration.note,/not a whale or ownership verdict/);
@@ -56,6 +57,28 @@ test('token forensics reports bounded observations with coverage, never scores',
     assert.match(report.scope,/20,000 blocks/);assert.match(report.disclaimer,/not an independent audit/i);
     assert.equal(report.score,undefined);assert.equal(report.riskScore,undefined);
   }finally{await cleanup(dir);}
+});
+
+test('registry outages stay unknown and never become an unregistered fact for AI or UI',async()=>{
+  const store={read:()=>[],change:async(_name,work)=>work([])};
+  const protocol={verify:async()=>{throw new Error('RPC unavailable');},launchRecord:async()=>{throw new Error('RPC unavailable');}};
+  const report=await createMarket(store,{client:{},protocol,fetcher:async()=>{throw new Error('Explorer unavailable');}}).forensics(token);
+  assert.equal(report.registration.registered,null);assert.equal(report.registration.graduationThreshold,null);assert.equal(report.registration.graduationCurrency,null);
+  assert.deepEqual(report.flags,[]);assert.equal(report.creatorEconomics,null);
+});
+
+test('X-Ray formats a six-decimal graduation asset and keeps unread account types unknown',async()=>{
+  const quote='0x5555555555555555555555555555555555555555';
+  const launch={exists:true,token,curve:creator,deployer:creator,creatorFeeRecipient:creator,pairToken:quote,graduationThreshold:2500000n,creatorTaxBps:100n,buybackEnabled:false,phase:0};
+  const state={};const store={read:name=>state[name]||[],change:async(name,work)=>work(state[name]??=[])};
+  const client={getCode:async()=>{throw new Error('Code RPC unavailable');},getBlockNumber:async()=>1n,getLogs:async()=>[],readContract:async({functionName})=>({getLaunchedToken:launch,name:'Quoted Coin',symbol:'QC',decimals:18,totalSupply:10n**27n})[functionName]};
+  const protocol={verify:async()=>{},marketState:async()=>({currency:'USDG'}),launchRecord:async()=>launch,quoteAsset:async()=>({symbol:'USDG',decimals:6})};
+  const market=createMarket(store,{client,protocol,fetcher:async()=>{throw new Error('Explorer unavailable');}});
+  const report=await market.forensics(token);
+  assert.equal(report.registration.registered,true);assert.equal(report.registration.graduationThreshold,'2.5');assert.equal(report.registration.graduationCurrency,'USDG');assert.equal(report.registration.graduationThresholdRaw,'2500000');
+  assert.equal(report.creatorEconomics.recipientIsContract,null);assert.ok(!report.flags.some(flag=>flag.id==='fee-recipient-contract'));
+  protocol.quoteAsset=async()=>{throw new Error('Asset metadata unavailable');};
+  const unavailable=await market.forensics(token);assert.equal(unavailable.registration.registered,true);assert.equal(unavailable.registration.graduationThreshold,null);assert.equal(unavailable.registration.graduationCurrency,null);
 });
 
 test('unregistered tokens get honest forensics without invented protocol facts',async()=>{

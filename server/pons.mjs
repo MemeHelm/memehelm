@@ -3,8 +3,9 @@ import {erc20Abi,zeroAddress,encodeFunctionData,encodeDeployData,encodeAbiParame
 import {NETWORK} from '../shared/config.mjs';
 import {PONS,factoryAbi,curveAbi,escrowAbi,hookAbi,stateAbi,quoterAbi,routerAbi,permitAbi,poolKeyType,poolKey,poolId,quoteCurveBuy,quoteCurveSell,ceilDiv} from '../shared/pons.mjs';
 import {validateLaunch,validateSplit,validAddress} from '../shared/launch.mjs';
-import {computeHoldersPayout,holdersExclusions} from '../shared/distribution.mjs';
+import {computeHoldersPayout,selectHoldersPayout,holdersExclusions} from '../shared/distribution.mjs';
 import {publicClient,artifact} from './chain.mjs';
+import {withDeadline} from './deadline.mjs';
 
 const same=(a,b)=>a?.toLowerCase()===b?.toLowerCase();
 const uint128max=(1n<<128n)-1n;
@@ -12,6 +13,7 @@ export async function verifyDeployment(client,name){const pinned=PONS[name],code
 export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=artifact,checkCode=verifyDeployment}={}){
   let checked=-Infinity;
   const quotes=new Map();
+  const payoutReviews=new Map();
   const read=(address,abi,functionName,args=[],blockNumber)=>client.readContract({address,abi,functionName,args,...(blockNumber?{blockNumber}:{})});
   const factory=(name,args=[],block)=>read(PONS.factory.address,factoryAbi,name,args,block);
   async function verify(names=['factory','hook','escrow']){
@@ -71,7 +73,7 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
     // so launches without exemptions keep the exact 3-argument calldata used before.
     const launchArgs=[params,BigInt(draft.configId),zeroAddress,...(draft.snipeTaxExemptions.length?[draft.snipeTaxExemptions]:[])];
     await client.simulateContract({address:PONS.factory.address,abi:factoryAbi,functionName:'launchToken',args:launchArgs,account:owner,value:BigInt(settings.fee)});
-    return{chainId:4663,to:PONS.factory.address,data:encodeFunctionData({abi:factoryAbi,functionName:'launchToken',args:launchArgs}),value:settings.fee,expiresAt:new Date(now()+90000).toISOString(),economics:expectedEconomics,settings:draft,config};
+    return{chainId:4663,to:PONS.factory.address,data:encodeFunctionData({abi:factoryAbi,functionName:'launchToken',args:launchArgs}),value:settings.fee,expiresAt:new Date(now()+90000).toISOString(),economics:expectedEconomics,settings:draft,config,protocolRules:{snipeTaxSeconds:settings.snipeTaxSeconds,snipeTaxStartBps:settings.snipeTaxStartBps,checkedAt:settings.checkedAt,block:settings.block}};
   }
   async function marketState(token){
     const launch=await launchRecord(token),asset=await quoteAsset(launch),key=poolKey(launch,PONS.hook.address),id=poolId(key),scale=10**(18-asset.decimals),base={launch,pool:id,currency:asset.symbol,pairToken:asset.address,quoteDecimals:asset.decimals};
@@ -144,22 +146,49 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
   // Counter-style holder payout: the keeper turns one explorer snapshot plus the
   // current vault balance into one explicit distribute() transaction for the
   // controller to review and sign. Nothing moves without that signature.
-  async function prepareDistribution(owner,project,holdersResult){
+  async function prepareDistribution(owner,project,holdersResult,input={}){
     const state=await snapshot(project);
     if(!state.vault||state.vault.kind!=='holders')throw new Error('Link this token to a verified holders vault before preparing payouts.');
     const compiled=await loadArtifact('HoldersVault'),balance=await read(state.vault.address,compiled.abi,'distributable');
     if(balance===0n)throw new Error('Collect settled fees into the holders vault first.');
-    if(!holdersResult||!holdersResult.holderDataAvailable)throw new Error('Holder data is temporarily unavailable. Try again shortly.');
-    const launch=await nativeRecord(project.tokenAddress);
-    const exclusions=holdersExclusions({curve:launch.curve,poolManager:PONS.manager.address,vault:state.vault.address});
-    const round=computeHoldersPayout({entries:holdersResult.holders,amountWei:balance,exclude:exclusions});
-    const recipients=round.payouts.map(payout=>payout.address),amounts=round.payouts.map(payout=>payout.amount);
-    await client.simulateContract({address:state.vault.address,abi:compiled.abi,functionName:'distribute',args:[recipients,amounts],account:owner});
-    return {chainId:4663,to:state.vault.address,data:encodeFunctionData({abi:compiled.abi,functionName:'distribute',args:[recipients,amounts]}),value:'0',label:'distribute',total:formatEther(balance),recipients,amounts:amounts.map(amount=>formatEther(amount)),round:{included:round.included,sampled:round.sampled,coveredBalance:round.coveredBalance,dropped:round.dropped},expiresAt:new Date(now()+90000).toISOString()};
+    if(!input.reviewId&&(!holdersResult||!holdersResult.holderDataAvailable))throw new Error('Holder data is temporarily unavailable. Try again shortly.');
+    for(const[id,review]of payoutReviews)if(review.expires<=now())payoutReviews.delete(id);
+    let review,id=input.reviewId;
+    if(id){
+      review=payoutReviews.get(id);
+      if(!review||review.owner!==owner.toLowerCase()||review.projectId!==project.id||!same(review.vault,state.vault.address))throw new Error('This payout review expired. Prepare a new snapshot.');
+      if(review.rounds!==state.vault.rounds)throw new Error('A payout round was already signed. Prepare a new snapshot before paying again.');
+    }else{
+      const launch=await nativeRecord(project.tokenAddress),exclusions=holdersExclusions({curve:launch.curve,poolManager:PONS.manager.address,vault:state.vault.address});
+      const round=computeHoldersPayout({entries:holdersResult.holders,amountWei:balance,exclude:exclusions});
+      id=randomUUID();review={owner:owner.toLowerCase(),projectId:project.id,vault:state.vault.address,rounds:state.vault.rounds,round,holdersCount:holdersResult.holdersCount??null,checkedAt:holdersResult.checkedAt??null,expires:now()+600000};
+      if(payoutReviews.size>=200)payoutReviews.delete(payoutReviews.keys().next().value);payoutReviews.set(id,review);
+    }
+    const round=review.round,selected=selectHoldersPayout(round,input.excludedRecipients||[]),recipients=selected.payouts.map(payout=>payout.address),amounts=selected.payouts.map(payout=>payout.amount);
+    if(selected.total>balance)throw new Error('The vault balance changed. Prepare a new snapshot.');
+    let simulationError=null;const failedRecipients=[];
+    if(!recipients.length)simulationError='Select at least one recipient before preparing a payout.';
+    else try{await client.simulateContract({address:state.vault.address,abi:compiled.abi,functionName:'distribute',args:[recipients,amounts],account:owner});}
+    catch(error){
+      simulationError='This payout cannot be completed as selected. A recipient may reject ETH, or the chain may be unavailable. Review the full list, explicitly leave out a failing address, then check the revised payout. Left-out shares stay in the vault.';
+      // Only isolate a confirmed transfer rejection. A network failure must never
+      // become a claim that a holder cannot receive funds. Bound the extra reads.
+      const rejectsTransfer=error=>/Payout transfer failed/.test(String(error?.shortMessage||error?.message||''));let budget=24;const stopAt=Date.now()+6500;
+      async function locate(payouts){
+        if(payouts.length===1){failedRecipients.push(payouts[0].address);return;}
+        const middle=Math.ceil(payouts.length/2);
+        for(const part of [payouts.slice(0,middle),payouts.slice(middle)]){
+          if(!part.length||budget--<=0||Date.now()>=stopAt)continue;
+          try{await withDeadline(()=>client.simulateContract({address:state.vault.address,abi:compiled.abi,functionName:'distribute',args:[part.map(item=>item.address),part.map(item=>item.amount)],account:owner}),Math.max(1,stopAt-Date.now()));}
+          catch(reason){if(rejectsTransfer(reason))await locate(part);}
+        }
+      }
+      if(rejectsTransfer(error))await locate(selected.payouts);
+    }
+    return {chainId:4663,to:state.vault.address,...(!simulationError?{data:encodeFunctionData({abi:compiled.abi,functionName:'distribute',args:[recipients,amounts]})}:{}),value:'0',label:'distribute',reviewId:id,reviewExpiresAt:new Date(review.expires).toISOString(),simulationError,failedRecipients,total:formatEther(selected.total),retained:formatEther(selected.retained),snapshotTotal:formatEther(round.snapshotAmount),recipients,amounts:amounts.map(amount=>formatEther(amount)),reviewRecipients:round.payouts.map(payout=>({address:payout.address,amount:formatEther(payout.amount)})),excludedRecipients:selected.excludedRecipients,round:{included:recipients.length,eligible:round.eligible,sampled:round.sampled,holdersCount:review.holdersCount,checkedAt:review.checkedAt,minimum:formatEther(BigInt(round.minPayoutWei)),coveredBalance:round.coveredBalance,dropped:round.dropped.map(item=>({...item,amount:formatEther(BigInt(item.amount))}))},expiresAt:new Date(now()+90000).toISOString()};
   }
-  // Community-escrow releases: fees wait onchain behind a public review window.
-  // The workspace prepares propose/execute/cancel transactions; release execution
-  // additionally requires the project's verified X connection (route-level gate).
+  // Community-escrow releases preserve the onchain controller and public window.
+  // Social accounts neither authorize releases nor establish a community veto.
   async function socialEscrowAction(owner,project,action,input){
     const state=await snapshot(project);
     if(!state.vault||state.vault.kind!=='social')throw new Error('Link this token to a verified community escrow first.');
@@ -176,6 +205,7 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
       return {chainId:4663,to:state.vault.address,data:encodeFunctionData({abi:compiled.abi,functionName:'propose',args}),value:'0',label:'propose',recipient,amount:formatEther(amount),availableAt:new Date(Number(block.timestamp)*1000+reviewWindow*1000).toISOString(),expiresAt:new Date(now()+90000).toISOString()};
     }
     if(action==='execute'||action==='cancel'){
+      if(action==='execute'&&input.confirmWalletControl!==true)throw new Error('Confirm that this escrow release is authorized by the controller wallet after the public review window.');
       const id=Number(input.proposalId);
       if(!Number.isSafeInteger(id)||id<=0)throw new Error('Choose a proposal.');
       const[recipient,amount,proposedAt,status]=await read(state.vault.address,compiled.abi,'proposals',[BigInt(id)]);
@@ -188,15 +218,17 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
     }
     throw new Error('Choose a valid escrow action.');
   }
-  async function socialProposals(project,limit=10){
+  async function socialProposals(project,input={}){
     const state=await snapshot(project);
     if(!state.vault||state.vault.kind!=='social')throw new Error('This project has no community escrow.');
-    const compiled=await loadArtifact('SocialVault'),count=Number(await read(state.vault.address,compiled.abi,'proposalCount')),windowSeconds=Number(await read(state.vault.address,compiled.abi,'reviewWindow')),first=Math.max(1,count-Math.min(Math.max(1,limit),25)+1),ids=Array.from({length:Math.max(0,count-first+1)},(_,index)=>first+index);
+    const limit=Number(input.limit??10),before=input.before===undefined||input.before===null||input.before===''?null:Number(input.before);
+    if(!Number.isInteger(limit)||limit<1||limit>25||before!==null&&(!Number.isSafeInteger(before)||before<1))throw new Error('Choose a valid proposal page.');
+    const compiled=await loadArtifact('SocialVault'),count=Number(await read(state.vault.address,compiled.abi,'proposalCount')),windowSeconds=Number(await read(state.vault.address,compiled.abi,'reviewWindow')),last=before===null?count:Math.min(count,before-1),first=Math.max(1,last-limit+1),ids=Array.from({length:Math.max(0,last-first+1)},(_,index)=>first+index);
     const proposals=await Promise.all(ids.reverse().map(async id=>{
       const[recipient,amount,proposedAt,status]=await read(state.vault.address,compiled.abi,'proposals',[BigInt(id)]);
       return {id,recipient,amount:formatEther(amount),proposedAt:new Date(Number(proposedAt)*1000).toISOString(),status:Number(status)===1?'executed':Number(status)===2?'cancelled':'open',availableAt:new Date((Number(proposedAt)+windowSeconds)*1000).toISOString()};
     }));
-    return {proposals,reviewWindow:windowSeconds,proposalCount:count,checkedAt:new Date(now()).toISOString()};
+    return {proposals,reviewWindow:windowSeconds,proposalCount:count,nextBefore:first>1?first:null,checkedAt:new Date(now()).toISOString()};
   }
   return{verify,options,launchRecord,nativeRecord,quoteAsset,marketState,verifyVault,prepareVault,prepareLaunch,quote,tradeStep,snapshot,revenueAction,prepareDistribution,socialEscrowAction,socialProposals};
 }

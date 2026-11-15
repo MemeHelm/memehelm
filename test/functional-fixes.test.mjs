@@ -7,6 +7,7 @@ import {resolve,sep} from 'node:path';
 import {createWorkspaceStore} from '../server/workspace.mjs';
 import {createMonitor} from '../server/monitor.mjs';
 import {signedClient,testWallet} from './helpers/auth.mjs';
+import {publicClient} from '../server/chain.mjs';
 
 async function withWorkspace(run){
   await mkdir('qa',{recursive:true});
@@ -43,7 +44,7 @@ test('a pre-launch split saves and restores as draft configuration without a ver
   assert.equal(updated.id,project.id);assert.equal(updated.draft.vaultAddress,vault);
 }));
 
-test('saving and restoring a draft preserves the latest assistant profile',()=>withWorkspace(async({alice,bob})=>{
+test('saving and restoring a draft preserves the latest assistant profile',t=>withWorkspace(async({alice,bob})=>{
   const draft={name:'Orbit Club',symbol:'ORBIT',description:'A community for builders.'};
   const project=await (await alice.post('/projects',{...draft,draft})).json();
   const profile={aiName:'Orbit Guide',aiVoice:'Playful & bold',aiGoal:'Welcome new builders.'};
@@ -54,8 +55,16 @@ test('saving and restoring a draft preserves the latest assistant profile',()=>w
   assert.equal(saved.name,'Orbit Revised');assert.equal(saved.createdAt,project.createdAt);
   const restored=(await (await alice.get('/projects')).json())[0];for(const [key,value] of Object.entries(profile))assert.equal(restored[key],value);
   assert.equal((await bob.post(`/projects/${project.id}/assistant`,profile)).status,404);
-  const imported=await (await alice.post('/projects',{...draft,draftId:project.id,tokenAddress:testWallet(12).address})).json();
+  // The imported address represents an ERC20 contract in this isolated fixture,
+  // rather than the EOA used before import-time token verification was added.
+  const tokenAddress='0x1212121212121212121212121212121212121212',metadata={name:'Orbit Club',symbol:'ORBIT',decimals:18,totalSupply:1000000000000000000000000000n},reads=[];
+  t.mock.method(publicClient,'getChainId',async()=>4663);
+  t.mock.method(publicClient,'getCode',async({address})=>{assert.equal(address.toLowerCase(),tokenAddress);return '0x60006000';});
+  t.mock.method(publicClient,'readContract',async({address,functionName})=>{assert.equal(address.toLowerCase(),tokenAddress);assert.ok(Object.hasOwn(metadata,functionName));reads.push(functionName);return metadata[functionName];});
+  const importResponse=await alice.post('/projects',{...draft,draftId:project.id,tokenAddress});assert.equal(importResponse.status,201);
+  const imported=await importResponse.json();
   assert.equal(imported.status,'imported');assert.equal(imported.draft,undefined);
+  assert.equal(imported.tokenAddress.toLowerCase(),tokenAddress);assert.deepEqual(reads.sort(),['decimals','name','symbol','totalSupply']);
   for(const [key,value] of Object.entries(profile))assert.equal(imported[key],value);
 }));
 
@@ -113,7 +122,7 @@ test('global monitoring rotates batches, tolerates failures and keeps manual che
 test('AI permission failures are safe, preserve history and allow a later successful retry',()=>withWorkspace(async({alice,originalFetch})=>{
   Object.assign(process.env,{AI_API_BASE:'https://provider-test.example/v1',AI_API_KEY:'test-only-not-a-live-key',AI_MODEL:'local-model'});
   let providerStatus=403;
-  globalThis.fetch=async(input,options)=>String(input).startsWith('https://provider-test.example/')?Response.json(providerStatus===200?{choices:[{message:{content:'A recovered private draft.'}}]}:{error:{message:'Internal group and credential details must not reach users.'}},{status:providerStatus}):originalFetch(input,options);
+  globalThis.fetch=async(input,options)=>String(input).startsWith('https://provider-test.example/')?Response.json(providerStatus===200?{choices:[{message:{content:JSON.stringify({postText:'A recovered private draft.',factualBasis:'Based only on the supplied project story.'})}}]}:{error:{message:'Internal group and credential details must not reach users.'}},{status:providerStatus}):originalFetch(input,options);
   const project=await (await alice.post('/projects',{name:'Orbit Club',symbol:'ORBIT'})).json();
   for(const status of [401,403,429]){providerStatus=status;const response=await alice.post('/copilot',{projectId:project.id,task:'post'});assert.equal(response.status,status===429?429:503);const data=await response.json();assert.match(data.error,status===429?/busy/:/saved drafts/);assert.doesNotMatch(data.error,/Internal|credential|group|test-only/);}
   assert.deepEqual(await (await alice.get(`/projects/${project.id}/activity`)).json(),[]);

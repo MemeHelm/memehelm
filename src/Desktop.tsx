@@ -1,13 +1,16 @@
 import {useEffect,useRef,useState} from 'react';
 import type {CSSProperties,PointerEvent,ReactNode} from 'react';
 import {Arrow,HelmMark,Wordmark} from './Brand';
-import {EntryLoader,prefersLessMotion} from './EntryLoader';
+import {prefersLessMotion} from './EntryLoader';
 import {Wallpaper} from './Wallpaper';
 import {SearchPalette} from './SearchPalette';
+import {MateCompanion} from './MateCompanion';
+import {useModalFocus} from './useModalFocus';
 import type {Page,Project} from './types';
 import {fitWindow,initialWindow,moveWindow,resizeWindow} from '../shared/desktop-layout.mjs';
 import {imageSource} from '../shared/project.mjs';
 import './desktop.css';
+import './recovery.css';
 
 type ToolId=Page;
 export const apps:{id:ToolId;title:string;description:string;icon:string;color:string}[]=[
@@ -15,7 +18,7 @@ export const apps:{id:ToolId;title:string;description:string;icon:string;color:s
   {id:'discover',title:'Discover',description:'Explore MemeHelm launches',icon:'discover',color:'yellow'},
   {id:'signals',title:'Signals',description:'Your watchlist and private alerts',icon:'signals',color:'mint'},
   {id:'launch',title:'Launchpad',description:'Create your coin on Robinhood',icon:'launch',color:'orange'},
-  {id:'copilot',title:'AI Copilot',description:'Project memory, action reviews and writing',icon:'copilot',color:'mint'},
+  {id:'copilot',title:'AI Copilot',description:'Chat with your project’s AI, plan and write',icon:'copilot',color:'mint'},
   {id:'treasury',title:'Treasury',description:'Follow revenue and release funds',icon:'treasury',color:'yellow'},
   {id:'overview',title:'My Projects',description:'Your coins, together in one place',icon:'projects',color:'blue'},
   {id:'calculator',title:'Split Calculator',description:'Find the right revenue allocation',icon:'calculator',color:'pink'},
@@ -25,6 +28,11 @@ const appFor=(id:ToolId)=>apps.find(app=>app.id===id)!;
 type Rect={x:number;y:number;width:number;height:number};
 type DeskWindow={id:ToolId;rect:Rect;minimized:boolean;maximized:boolean;motion?:'opening'|'restoring'|'minimizing'|'closing'};
 type Bounds={width:number;height:number};
+
+function DiscardWindow({keep,discard,signout=false}:{keep:()=>void;discard:()=>void;signout?:boolean}){
+  const panel=useRef<HTMLElement>(null);useModalFocus(panel,keep);
+  return <div className="modal-overlay window-discard-overlay"><section className="modal panel" role="alertdialog" aria-modal="true" aria-labelledby="window-discard-title" aria-describedby="window-discard-description" ref={panel} tabIndex={-1}><h2 id="window-discard-title">Keep your work open?</h2><p id="window-discard-description">There are unsaved edits or a request in progress. Keep the window open to save your work or wait for the result. Closing does not cancel a submitted request.</p><div className="button-row"><button className="button primary" onClick={keep}>Keep editing</button><button className="button secondary" onClick={discard}>{signout?'Discard edits and sign out':'Discard edits and close'}</button></div></section></div>;
+}
 
 export function DesktopIcon({name,size=48}:{name:string;size?:number}){
   const symbols:Record<string,ReactNode>={
@@ -79,16 +87,19 @@ function SplitCalculator({useSplit,compact=false}:{useSplit:(reserve:number)=>vo
   return <div className={`calculator-app ${compact?'calculator-compact':''}`}><div className="calculator-intro"><DesktopIcon name="calculator" size={32}/><div>{compact?<h2>Give revenue a destination.</h2>:<h1>Find your split.</h1>}<p>Try an allocation before you launch.</p></div></div><label className="calculator-input">Example revenue<div><input aria-label="Example vault revenue in ETH" inputMode="decimal" type="number" min="0" step="0.1" value={amount} onChange={event=>setAmount(event.target.value)}/><span>ETH</span></div></label><div className="calculator-shares"><div><span>Project wallet</span><strong>{100-reserve}<small>%</small></strong></div><Arrow diagonal/><div><span>Reserve wallet</span><strong>{reserve}<small>%</small></strong></div></div><label className="calculator-range"><span>Reserve allocation<strong>{reserve}%</strong></span><input aria-label="Example reserve allocation" type="range" min="0" max="100" value={reserve} onChange={event=>setReserve(Number(event.target.value))}/></label><div className="calculator-totals"><div><span>Project receives</span><strong>{format(revenue*(100-reserve)/100)} <small>ETH</small></strong></div><div><span>Reserve receives</span><strong>{format(revenue*reserve/100)} <small>ETH</small></strong></div></div><button className="button secondary full" onClick={()=>useSplit(reserve)}>Use this allocation <Arrow/></button><p className="calculator-note">Illustrative amounts, not earnings. Applies to ETH received by your vault.</p></div>;
 }
 
-type Props={page:Page;navigate:(page:Page)=>void;renderPage:(page:Page)=>ReactNode;projects:Project[];wallet:string;busy:string;connect:()=>Promise<void>;logout:()=>Promise<void>;useSplit:(reserve:number)=>void;openProject:(id:string)=>void};
+type Props={page:Page;navigate:(page:Page)=>void;renderPage:(page:Page)=>ReactNode;projects:Project[];wallet:string;busy:string;connect:()=>Promise<void>;logout:()=>Promise<void>;useSplit:(reserve:number)=>void;openProject:(id:string)=>void;entered:boolean;introRevealed:boolean;replayIntro:()=>void};
 
-export function Desktop({page,navigate,renderPage,projects,wallet,busy,connect,logout,useSplit,openProject}:Props){
+export function Desktop({page,navigate,renderPage,projects,wallet,busy,connect,logout,useSplit,openProject,entered,introRevealed,replayIntro}:Props){
   const surface=useRef<HTMLDivElement>(null);
   const [bounds,setBounds]=useState<Bounds>({width:1280,height:720});
   const [windows,setWindows]=useState<DeskWindow[]>(()=>page==='home'?[]:[{id:page,rect:initialWindow(page,{width:1280,height:720},0),minimized:false,maximized:false,motion:'opening'}]);
   const [active,setActive]=useState<ToolId|null>(page==='home'?null:page),[startOpen,setStartOpen]=useState(false),[now,setNow]=useState(new Date()),[searchOpen,setSearchOpen]=useState(false);
   const [ambientPaused,setAmbientPaused]=useState(()=>{try{return localStorage.getItem('memehelm:desktop:ambient')==='paused';}catch{return false;}});
   const [visible,setVisible]=useState(()=>!document.hidden);
-  const [entered,setEntered]=useState(prefersLessMotion),[dragging,setDragging]=useState<ToolId|null>(null);
+  const [dragging,setDragging]=useState<ToolId|null>(null);
+  const entranceShown=useRef(!entered);
+  const guardedWindows=useRef(new Map<string,boolean>());
+  const [discardWindow,setDiscardWindow]=useState<ToolId|'signout'|null>(null);
   const gesture=useRef<{id:ToolId;kind:'move'|'resize';x:number;y:number;rect:Rect;pointer:number}|null>(null);
   const menuRef=useRef<HTMLDivElement>(null),startRef=useRef<HTMLButtonElement>(null),topAppsRef=useRef<HTMLButtonElement>(null);
   const measured=useRef(false);
@@ -96,17 +107,25 @@ export function Desktop({page,navigate,renderPage,projects,wallet,busy,connect,l
   const motionTimers=useRef(new Map<ToolId,number>()),currentWindows=useRef(windows),currentActive=useRef(active);
   currentWindows.current=windows;currentActive.current=active;
   useEffect(()=>{
+    const guard=(event:Event)=>{const detail=(event as CustomEvent<{id:string;blocked:boolean}>).detail;if(detail?.id)guardedWindows.current.set(detail.id,!!detail.blocked);};
+    const leave=(event:BeforeUnloadEvent)=>{if([...guardedWindows.current.values()].some(Boolean)){event.preventDefault();event.returnValue='';}};
+    const projectChange=(event:Event)=>{if([...guardedWindows.current.values()].some(Boolean)){event.preventDefault();focus('copilot');}};
+    window.addEventListener('memehelm-window-guard',guard);window.addEventListener('beforeunload',leave);window.addEventListener('memehelm-before-project-change',projectChange);
+    return()=>{window.removeEventListener('memehelm-window-guard',guard);window.removeEventListener('beforeunload',leave);window.removeEventListener('memehelm-before-project-change',projectChange);};
+  },[]);
+  useEffect(()=>{
     if(!surface.current)return;
     const observer=new ResizeObserver(([entry])=>{const value={width:entry.contentRect.width,height:entry.contentRect.height};if(value.width<1||value.height<1)return;setBounds(value);const first=!measured.current;measured.current=true;setWindows(previous=>previous.map((win,index)=>({...win,rect:first?initialWindow(win.id,value,index):value.width<=720?win.rect:fitWindow(win.rect,value)})));});
     observer.observe(surface.current);return()=>observer.disconnect();
   },[]);
   useEffect(()=>{if(firstRoute.current){firstRoute.current=false;if(page==='home')return;focus(page);return;}if(currentActive.current!==page||!currentWindows.current.some(win=>win.id===page&&!win.minimized))focus(page);},[page]);
-  useEffect(()=>{const id=requestedWindowFocus.current;if(!id||active!==id)return;const frame=requestAnimationFrame(()=>{if(currentActive.current!==id)return;requestedWindowFocus.current=null;const win=surface.current?.querySelector<HTMLElement>(`[data-window="${id}"]`);if(win&&!win.hidden&&!win.contains(document.activeElement))win.querySelector<HTMLElement>('.desktop-titlebar h2')?.focus({preventScroll:true});});return()=>cancelAnimationFrame(frame);},[active,windows]);
+  useEffect(()=>{const id=requestedWindowFocus.current;if(!entered||!id||active!==id)return;const frame=requestAnimationFrame(()=>{if(currentActive.current!==id)return;requestedWindowFocus.current=null;const win=surface.current?.querySelector<HTMLElement>(`[data-window="${id}"]`);if(win&&!win.hidden&&!win.contains(document.activeElement))win.querySelector<HTMLElement>('.desktop-titlebar h2')?.focus({preventScroll:true});});return()=>cancelAnimationFrame(frame);},[entered,active,windows]);
+  useEffect(()=>{if(!entered){entranceShown.current=true;return;}if(!entranceShown.current)return;entranceShown.current=false;const frame=requestAnimationFrame(()=>{const id=currentActive.current,target=id?surface.current?.querySelector<HTMLElement>(`[data-window="${id}"] .desktop-titlebar h2`):surface.current?.closest('.desktop-shell')?.querySelector<HTMLElement>('.desktop-brand');target?.focus({preventScroll:true});});return()=>cancelAnimationFrame(frame);},[entered]);
   useEffect(()=>{const timer=setInterval(()=>setNow(new Date()),30000);return()=>clearInterval(timer);},[]);
   useEffect(()=>()=>{for(const timer of motionTimers.current.values())window.clearTimeout(timer);motionTimers.current.clear();},[]);
   useEffect(()=>{if(!startOpen)return;const close=(event:globalThis.PointerEvent)=>{if(!menuRef.current?.contains(event.target as Node)&&!startRef.current?.contains(event.target as Node)&&!topAppsRef.current?.contains(event.target as Node))setStartOpen(false);};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setStartOpen(false);startRef.current?.focus();}};document.addEventListener('pointerdown',close);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',escape);};},[startOpen]);
   useEffect(()=>{const key=()=>{keyboardInput.current=true;},pointer=()=>{keyboardInput.current=false;},visibility=()=>setVisible(!document.hidden);document.addEventListener('keydown',key,true);document.addEventListener('pointerdown',pointer,true);document.addEventListener('visibilitychange',visibility);return()=>{document.removeEventListener('keydown',key,true);document.removeEventListener('pointerdown',pointer,true);document.removeEventListener('visibilitychange',visibility);};},[]);
-  useEffect(()=>{const toggle=(event:KeyboardEvent)=>{if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setSearchOpen(open=>!open);}};window.addEventListener('keydown',toggle);return()=>window.removeEventListener('keydown',toggle);},[]);
+  useEffect(()=>{const toggle=(event:KeyboardEvent)=>{if(entered&&(event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setSearchOpen(open=>!open);}};window.addEventListener('keydown',toggle);return()=>window.removeEventListener('keydown',toggle);},[entered]);
   function cancelMotion(id:ToolId){const timer=motionTimers.current.get(id);if(timer!==undefined)window.clearTimeout(timer);motionTimers.current.delete(id);}
   function focus(id:ToolId,enterWindow=true){cancelMotion(id);requestedWindowFocus.current=enterWindow?id:null;setActive(id);const instant=keyboardInput.current||prefersLessMotion();setWindows(previous=>{const win=previous.find(item=>item.id===id);return win?[...previous.filter(item=>item.id!==id),{...win,minimized:false,motion:instant?undefined:win.minimized||win.motion==='minimizing'||win.motion==='closing'?'restoring':win.motion}]:[...previous,{id,rect:initialWindow(id,bounds,previous.length),minimized:false,maximized:false,motion:instant?undefined:'opening'}];});if(page!==id)navigate(id);setStartOpen(false);}
   function returnToDock(id:ToolId){requestAnimationFrame(()=>{const button=document.querySelector<HTMLButtonElement>(`.os-dock-app[data-app="${id}"]`);(button||startRef.current)?.focus({preventScroll:true});});}
@@ -118,7 +137,9 @@ export function Desktop({page,navigate,renderPage,projects,wallet,busy,connect,l
     setWindows(previous=>previous.map(item=>item.id===id?{...item,motion:'minimizing'}:item));
     motionTimers.current.set(id,window.setTimeout(finish,240));
   }
-  function close(id:ToolId){
+  function close(id:ToolId,discard=false){
+    if(!discard&&guardedWindows.current.get(id)){setDiscardWindow(id);return;}
+    if(discard)guardedWindows.current.delete(id);
     cancelMotion(id);
     const finish=()=>{
       motionTimers.current.delete(id);
@@ -137,17 +158,21 @@ export function Desktop({page,navigate,renderPage,projects,wallet,busy,connect,l
   function adjust(event:PointerEvent<HTMLElement>){const current=gesture.current;if(!current||current.pointer!==event.pointerId)return;const dx=event.clientX-current.x,dy=event.clientY-current.y;const rect=current.kind==='move'?moveWindow(current.rect,dx,dy,bounds):resizeWindow(current.rect,dx,dy,bounds);setWindows(previous=>previous.map(win=>win.id===current.id?{...win,rect}:win));}
   function end(event:PointerEvent<HTMLElement>){if(gesture.current?.pointer===event.pointerId){gesture.current=null;setDragging(null);if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);}}
   const shorten=(value:string)=>`${value.slice(0,6)}…${value.slice(-4)}`;
-  const desktopApps=(['launch','overview','copilot','discover','signals'] as Page[]).map(appFor);
+  const desktopApps=(['launch','overview','copilot','discover','signals','treasury','home','calculator','guide'] as Page[]).map(appFor);
+  const requestSignout=()=>{if([...guardedWindows.current.values()].some(Boolean)){setDiscardWindow('signout');return;}void logout();};
   const dockApps=(['launch','overview','copilot','treasury','discover','signals'] as Page[]).map(appFor);
   const showDesktop=()=>{currentWindows.current.filter(win=>!win.minimized&&win.motion!=='closing').forEach(win=>minimize(win.id));setActive(null);setStartOpen(false);};
   const toggleAmbient=()=>{setAmbientPaused(value=>{const next=!value;try{localStorage.setItem('memehelm:desktop:ambient',next?'paused':'playing');}catch{}return next;});};
-  return <>{!entered&&<EntryLoader onDone={()=>setEntered(true)}/>}<div className={`desktop-shell os-desktop ${active?'has-active-window':''} ${entered?'desktop-ready':'desktop-entering'}`} inert={!entered} aria-hidden={!entered} aria-busy={!entered}><Wallpaper paused={ambientPaused||!visible}/><header className="desktop-topbar"><div className="os-topbar-left"><button className="desktop-brand" onClick={()=>focus('home')} aria-label="Open MemeHelm workspace"><Wordmark/></button><button className="os-menu-button os-desktop-menu" onClick={showDesktop} aria-label="Show desktop"><span>Desktop</span><ShellIcon name="desktop"/></button><button ref={topAppsRef} className="os-menu-button" aria-expanded={startOpen} aria-controls="desktop-app-launcher" onClick={()=>setStartOpen(!startOpen)}>Apps</button></div><div className="desktop-account"><button className="os-motion-button" aria-label={ambientPaused?'Resume background motion':'Pause background motion'} aria-pressed={ambientPaused} onClick={toggleAmbient}><ShellIcon name={ambientPaused?'play':'pause'}/></button><button className="desktop-search-button" aria-label="Search apps and projects" onClick={()=>setSearchOpen(true)}><ShellIcon name="search"/><kbd>⌘K</kbd></button><span className="desktop-network"><i/>Robinhood Chain</span><button className="desktop-wallet" disabled={!!busy} onClick={connect}><ShellIcon name="wallet"/>{wallet?shorten(wallet):'Connect wallet'}</button>{wallet&&<button className="desktop-signout" onClick={logout} title="Sign out of your private workspace">Sign out</button>}<time className="os-topbar-clock" dateTime={now.toISOString()} title={now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}>{now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</time></div></header>
+  function replayEntrance(){setStartOpen(false);replayIntro();}
+  return <div className={`desktop-shell os-desktop ${active?'has-active-window':''} ${entered||introRevealed?'desktop-ready':'desktop-entering'}`} inert={!entered} aria-hidden={!entered} aria-busy={!entered}><Wallpaper paused={ambientPaused||!visible||!entered}/><header className="desktop-topbar"><div className="os-topbar-left"><button className="desktop-brand" onClick={()=>focus('home')} aria-label="Open MemeHelm workspace"><Wordmark/></button><button className="os-menu-button os-desktop-menu" onClick={showDesktop} aria-label="Show desktop"><span>Desktop</span><ShellIcon name="desktop"/></button><button ref={topAppsRef} className="os-menu-button" aria-expanded={startOpen} aria-controls="desktop-app-launcher" onClick={()=>setStartOpen(!startOpen)}>Apps</button></div><div className="desktop-account"><button className="os-motion-button" aria-label={ambientPaused?'Resume background motion':'Pause background motion'} aria-pressed={ambientPaused} onClick={toggleAmbient}><ShellIcon name={ambientPaused?'play':'pause'}/></button><button className="desktop-search-button" aria-label="Search apps and projects" onClick={()=>setSearchOpen(true)}><ShellIcon name="search"/><kbd>⌘K</kbd></button><span className="desktop-network"><i/>Robinhood Chain</span><button className="desktop-wallet" disabled={!!busy} onClick={connect}><ShellIcon name="wallet"/>{wallet?shorten(wallet):'Connect wallet'}</button>{wallet&&<button className="desktop-signout" onClick={requestSignout} title="Sign out of your private workspace">Sign out</button>}<time className="os-topbar-clock" dateTime={now.toISOString()} title={now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}>{now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</time></div></header>
     <div className="desktop-surface" ref={surface}>
       <nav className="desktop-shortcuts" aria-label="Desktop apps">{desktopApps.map((app,index)=><button key={app.id} className="desktop-shortcut" style={{'--shortcut-order':index} as CSSProperties} onClick={()=>focus(app.id)} title={app.description}><AppTile name={app.icon}/><strong>{app.title}</strong></button>)}</nav>
       <div className="desktop-windows">{windows.map((win,index)=>{const app=appFor(win.id),phone=bounds.width<=720;const rect=win.maximized||phone?{x:0,y:0,width:bounds.width,height:bounds.height}:win.rect;return <section key={win.id} className={`desktop-window ${active===win.id?'focused':''} ${win.maximized?'maximized':''} ${win.motion?`is-${win.motion}`:''} ${dragging===win.id?'is-dragging':''}`} style={{left:rect.x,top:rect.y,width:rect.width,height:rect.height,zIndex:index+1} as CSSProperties} hidden={win.minimized} aria-label={`${app.title} window`} data-window={win.id} onFocusCapture={()=>{if(currentActive.current!==win.id)focus(win.id,false);}} onAnimationEnd={event=>{if(event.target===event.currentTarget&&(win.motion==='opening'||win.motion==='restoring'))setWindows(previous=>previous.map(item=>item.id===win.id&&item.motion===win.motion?{...item,motion:undefined}:item));}} onPointerDown={()=>{if(active!==win.id)focus(win.id,false);}}><header className="desktop-titlebar" onPointerDown={event=>begin(event,win,'move')} onPointerMove={adjust} onPointerUp={end} onPointerCancel={end} onDoubleClick={event=>{if((event.target as HTMLElement).closest('button')||phone)return;setWindows(previous=>previous.map(item=>item.id===win.id?{...item,maximized:!item.maximized}:item));}}><DesktopIcon name={app.icon} size={21}/><h2 tabIndex={-1}>{app.title}</h2><div className="desktop-window-controls"><button className="window-minimize" aria-label={`Minimize ${app.title}`} onClick={()=>minimize(win.id)}><span/></button><button className="window-maximize" aria-label={`${win.maximized?'Restore':'Maximize'} ${app.title}`} onClick={()=>setWindows(previous=>previous.map(item=>item.id===win.id?{...item,maximized:!item.maximized}:item))}><span/></button><button className="window-close" aria-label={`Close ${app.title}`} onClick={()=>close(win.id)}>×</button></div></header><div className="desktop-window-body">{win.id==='home'?<Welcome navigate={focus} projects={projects} openProject={openProject}/>:win.id==='guide'?<QuickGuide navigate={focus}/>:win.id==='calculator'?<SplitCalculator useSplit={useSplit}/>:renderPage(win.id)}</div><span className="desktop-resize" aria-hidden="true" onPointerDown={event=>begin(event,win,'resize')} onPointerMove={adjust} onPointerUp={end} onPointerCancel={end}/></section>;})}</div>
-      {startOpen&&<div className="desktop-start-menu" id="desktop-app-launcher" ref={menuRef}><div><Wordmark/><span>Your coin. Your direction.</span>{wallet&&<button className="os-launcher-signout" disabled={!!busy} onClick={logout}>Sign out</button>}</div><nav aria-label="All apps">{apps.map(app=><button key={app.id} onClick={()=>focus(app.id)}><AppTile name={app.icon}/><span><strong>{app.title}</strong><small>{app.description}</small></span></button>)}</nav><div className="os-launcher-footer"><button className="os-launcher-help" onClick={()=>focus('guide')}>Quick guide <Arrow/></button><button className="os-launcher-motion" aria-pressed={ambientPaused} onClick={toggleAmbient}><ShellIcon name={ambientPaused?'play':'pause'}/>{ambientPaused?'Resume motion':'Pause motion'}</button></div></div>}
+      {startOpen&&<div className="desktop-start-menu" id="desktop-app-launcher" ref={menuRef}><div><Wordmark/><span>Your coin. Your direction.</span>{wallet&&<button className="os-launcher-signout" disabled={!!busy} onClick={requestSignout}>Sign out</button>}</div><nav aria-label="All apps">{apps.map(app=><button key={app.id} onClick={()=>focus(app.id)}><AppTile name={app.icon}/><span><strong>{app.title}</strong><small>{app.description}</small></span></button>)}</nav><div className="os-launcher-footer"><button className="os-launcher-help" onClick={()=>focus('guide')}>Quick guide <Arrow/></button><button className="os-launcher-intro" onClick={replayEntrance} aria-label="Replay full intro animation"><ShellIcon name="play"/>Replay intro</button><button className="os-launcher-motion" aria-pressed={ambientPaused} onClick={toggleAmbient}><ShellIcon name={ambientPaused?'play':'pause'}/>{ambientPaused?'Resume motion':'Pause motion'}</button></div></div>}
     </div>
     <footer className="desktop-taskbar"><div className="os-dock"><button ref={startRef} className={`desktop-start-button ${startOpen?'selected':''}`} aria-label="All apps" aria-expanded={startOpen} aria-controls="desktop-app-launcher" onClick={()=>setStartOpen(!startOpen)}><ShellIcon name="grid"/><span className="os-dock-label">All apps</span></button><span className="os-dock-divider"/><nav className="desktop-tasks" aria-label="Application dock">{[...dockApps,...windows.filter(win=>!dockApps.some(app=>app.id===win.id)).map(win=>appFor(win.id))].map(app=>{const win=windows.find(win=>win.id===app.id),isActive=active===app.id&&!!win&&!win.minimized;return <button key={app.id} data-app={app.id} data-running={!!win} className={`os-dock-app ${isActive?'active':''} ${win?.minimized?'minimized':''}`} aria-label={win?`${win.minimized?'Restore':'Switch to'} ${app.title}`:`Open ${app.title}`} aria-pressed={isActive} onClick={()=>isActive&&win?.motion!=='minimizing'&&win?.motion!=='closing'?minimize(app.id):focus(app.id)}><AppTile name={app.icon}/><span className="os-dock-label">{app.title}</span></button>;})}</nav><span className="os-dock-divider"/><button className="show-desktop" onClick={showDesktop} aria-label="Show desktop" title="Show desktop"><ShellIcon name="desktop"/></button></div></footer>
+    <MateCompanion ready={entered} open={()=>focus('copilot')}/>
     {searchOpen&&<SearchPalette navigate={focus} projects={projects} openProject={openProject} close={()=>setSearchOpen(false)}/>}
-  </div></>;
+    {discardWindow&&<DiscardWindow signout={discardWindow==='signout'} keep={()=>setDiscardWindow(null)} discard={()=>{const id=discardWindow;setDiscardWindow(null);if(id==='signout'){guardedWindows.current.clear();void logout();}else close(id,true);}}/>}
+  </div>;
 }

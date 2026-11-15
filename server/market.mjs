@@ -69,9 +69,11 @@ export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch
     const address=getAddress(input.toLowerCase());
     const [core,holderData,tradeData]=await Promise.allSettled([details(input),holders(input),trades(input)]);
     const token=core.status==='fulfilled'?core.value:null,holder=holderData.status==='fulfilled'?holderData.value:null,trade=tradeData.status==='fulfilled'?tradeData.value:null;
-    let launch=null,recipientIsContract=null;
-    try{launch=await protocol.launchRecord(address);}catch{}
+    let launch=null,registered=null,recipientIsContract=null,graduationThreshold=null,graduationCurrency=null;
+    // A successful registry read can prove absence. A timeout cannot.
+    try{await withDeadline(async()=>{await protocol.verify();const record=await client.readContract({address:PONS.factory.address,abi:factoryAbi,functionName:'getLaunchedToken',args:[address]});if(typeof record?.exists!=='boolean')throw new Error('Registry result unavailable.');registered=record.exists;launch=record.exists?record:null;},limits.core);}catch{}
     if(launch){try{const code=await withDeadline(()=>client.getCode({address:launch.creatorFeeRecipient}),3000);recipientIsContract=!!code&&code!=='0x';}catch{recipientIsContract=null;}}
+    if(launch){try{const asset=await withDeadline(()=>protocol.quoteAsset(launch),3000);graduationThreshold=formatUnits(launch.graduationThreshold,asset.decimals);graduationCurrency=asset.symbol;}catch{}}
     const supply=token&&Number(token.totalSupply)>0?BigInt(token.totalSupply):null;
     const largest=holder&&holder.holderDataAvailable&&supply?[...holder.holders].sort((a,b)=>BigInt(b.balance)>BigInt(a.balance)?1:BigInt(b.balance)<BigInt(a.balance)?-1:0).slice(0,10).map(item=>BigInt(item.balance)):null;
     const concentration=largest&&supply?{largestCount:largest.length,share:Number(largest.reduce((sum,value)=>sum+value,0n)*10000n/supply)/100,sampled:holder.holders.length,holdersCount:holder.holdersCount,note:'Returned balances may include pools and contracts; the explorer index can lag recent transfers. This is not a whale or ownership verdict.'}:null;
@@ -86,9 +88,9 @@ export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch
     if(recipientIsContract===true)flags.push({id:'fee-recipient-contract',label:'Creator fees flow to a contract'});
     if(concentration&&concentration.share>=40)flags.push({id:'concentration',label:`Top ${concentration.largestCount} balances hold ${concentration.share.toFixed(0)}%`});
     if(launcherActivity&&launcherActivity.buys+launcherActivity.sells>0)flags.push({id:'launcher-traded',label:`Launching wallet traded ${launcherActivity.buys+launcherActivity.sells}× in window`});
-    if(!launch)flags.push({id:'unregistered',label:'Not a pons v2 launch'});
+    if(registered===false)flags.push({id:'unregistered',label:'Not a pons v2 launch'});
     return {address,checkedAt:new Date(now()).toISOString(),source,
-      registration:launch?{registered:true,phase:launch.phase,pairToken:launch.pairToken,graduationThreshold:String(launch.graduationThreshold),deployer:launch.deployer}:{registered:false,phase:null,pairToken:token?.pairToken||null,graduationThreshold:null,deployer:null},
+      registration:launch?{registered:true,phase:launch.phase,pairToken:launch.pairToken,graduationThreshold,graduationCurrency,graduationThresholdRaw:String(launch.graduationThreshold),deployer:launch.deployer}:{registered,phase:null,pairToken:token?.pairToken||null,graduationThreshold:null,graduationCurrency:null,graduationThresholdRaw:null,deployer:null},
       creatorEconomics:launch?{creatorTaxBps:Number(launch.creatorTaxBps),recipient:launch.creatorFeeRecipient,recipientIsContract,buybackEnabled:launch.buybackEnabled}:null,
       concentration,observedTrading,launcherActivity,flags,
       scope:'Checks use the current Blockscout holder snapshot and pons/Uniswap v4 execution events from the most recent 20,000 blocks. Missing data is never estimated.',

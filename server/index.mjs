@@ -20,14 +20,22 @@ import {createGrowth} from './growth.mjs';
 import {createContentCalendar} from './content-calendar.mjs';
 import {createWorkspaceStore} from './workspace.mjs';
 import {imageLink,projectLink,publicProject} from '../shared/project.mjs';
+import {verifyImportedToken} from './import-token.mjs';
+import {createRequestJournal} from './request-journal.mjs';
+import {chatPage,chatListPage} from './chat-history.mjs';
+import {createAssistantActions,parseAssistantPlan} from './assistant-actions.mjs';
+import {createTokenResearch} from './token-research.mjs';
 const root = fileURLToPath(new URL('../',import.meta.url));
 const dataDirectory = resolve(root, process.env.DATA_DIRECTORY || 'data/robinhood-mainnet-pons-v2');
 const workspace=createWorkspaceStore(dataDirectory);
+const aiJournal=createRequestJournal(workspace);
 const auth=createAuth(),context=new AsyncLocalStorage(),market=createMarket(workspace),monitor=createMonitor(workspace,market);
+const tokenResearch=createTokenResearch({market});
 const allProjects=async()=>(await workspace.projects()).filter(project=>project.chainId===NETWORK.id&&project.owner);
 const projects=async()=>(await allProjects()).filter(project=>project.owner===context.getStore()?.owner),mutate=workspace.mutateProjects;
 const aiRequests=new Map();
-const aiInFlight=new Set();
+const aiInFlight=new Set(),chatPreparing=new Set();
+async function withChatPreparation(owner,work){if(chatPreparing.has(owner))throw Object.assign(new Error('Your earlier chat request is still being prepared.'),{status:429});chatPreparing.add(owner);try{return await work();}finally{chatPreparing.delete(owner);}}
 function reserveAIRequest(owner){
   if(!aiConfigured())throw new Error('Copilot is temporarily unavailable. Please try again later.');
   const times=(aiRequests.get(owner)||[]).filter(time=>Date.now()-time<3600000);
@@ -36,7 +44,8 @@ function reserveAIRequest(owner){
 }
 async function withAI(owner,work){if(aiInFlight.has(owner))throw Object.assign(new Error('An AI request is already running for your wallet.'),{status:429});reserveAIRequest(owner);aiInFlight.add(owner);try{return await work();}finally{aiInFlight.delete(owner);}}
 const community=createCommunity(workspace),social=createXSocial(workspace,{origin:auth.origin}),growth=createGrowth(workspace),calendar=createContentCalendar(workspace);
-const operations=createOperations(workspace,{observe:project=>market.observe(project.tokenAddress),generate:generateCopilot,withAI,configured:aiConfigured,communityContext:project=>({community:community.context(project),xPosts:social.context(project),goals:growth.context(project),contentPlans:calendar.context(project)})});
+const assistantActions=createAssistantActions(workspace);
+const operations=createOperations(workspace,{observe:project=>market.observe(project.tokenAddress),generate:generateCopilot,withAI,configured:aiConfigured,communityContext:project=>({community:community.context(project),xPosts:social.context(project),goals:growth.context(project),contentPlans:calendar.context(project),assistantActions:assistantActions.context(project)})});
 const flowCookie=req=>String(req.headers.cookie||'').split(';').map(value=>value.trim()).find(value=>value.startsWith('mh_x_flow='))?.slice(10)||'';
 function setFlowCookie(res,value){res.setHeader('Set-Cookie',`mh_x_flow=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${value?600:0}${auth.origin.startsWith('https:')?'; Secure':''}`);}
 async function body(req,limit=20000) { req.setEncoding('utf8');let content='';for await(const chunk of req){content+=chunk;if(Buffer.byteLength(content)>limit)throw new Error('Request is too large.');}return content?JSON.parse(content):{}; }
@@ -79,7 +88,7 @@ function writable(req){const origin=req.headers.origin;if(origin&&origin!==auth.
 export const server=createServer((req,res)=>context.run({owner:auth.session(req)?.address.toLowerCase()},async()=>{
   try {
     if(!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(req.headers.host||''))throw new Error('Invalid local workspace host.');
-    const path=new URL(req.url,'http://127.0.0.1').pathname;
+    const url=new URL(req.url,'http://127.0.0.1'),path=url.pathname;
     if(req.method==='POST')writable(req);
     if(req.method==='GET'&&path==='/api/health')return json(res,200,{ok:true,chainId:NETWORK.id});
     if(req.method==='GET'&&path==='/api/auth/session')return json(res,200,{address:auth.session(req)?.address||null});
@@ -97,6 +106,8 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='GET'&&path==='/api/market/launches')return json(res,200,await market.feed());
     const marketPath=path.match(/^\/api\/market\/tokens\/(0x[a-fA-F0-9]{40})$/);
     if(req.method==='GET'&&marketPath){const token=await market.details(marketPath[1]);return json(res,200,{token,history:market.history(marketPath[1]),trades:{items:[],available:false,scope:'Load recent trades separately.'}});}
+    const researchPath=path.match(/^\/api\/market\/tokens\/(0x[a-fA-F0-9]{40})\/research$/);
+    if(req.method==='GET'&&researchPath)return json(res,200,await tokenResearch.research(researchPath[1],{refresh:url.searchParams.get('refresh')==='1'}));
     const marketSection=path.match(/^\/api\/market\/tokens\/(0x[a-fA-F0-9]{40})\/(trades|holders|forensics)$/);
     if(req.method==='GET'&&marketSection)return json(res,200,await market[marketSection[2]](marketSection[1]));
     if(req.method==='GET'&&path==='/api/watches')return json(res,200,workspace.read('watches').filter(item=>item.owner===owner));
@@ -109,9 +120,11 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='GET'&&path==='/api/watches/briefs')return json(res,200,workspace.read('briefs').filter(item=>item.owner===owner).reverse().slice(0,30));
     if(req.method==='POST'&&path==='/api/watches/brief'){
       const input=await body(req),watch=workspace.read('watches').find(item=>item.id===input.id&&item.owner===owner);if(!watch)throw new Error('Watch not found.');
-      if(aiInFlight.has(owner))return json(res,429,{error:'Your brief is already being written.'});
-      reserveAIRequest(owner);aiInFlight.add(owner);
-      try{const token=await market.details(watch.address),alerts=workspace.read('alerts').filter(item=>item.owner===owner&&item.address===watch.address).slice(-10);const result=await generateCopilot({project:{name:token.name||watch.symbol,symbol:token.symbol||watch.symbol,description:'A watched Robinhood Chain token. Explain observed changes and missing information without recommending trades.',status:'watched'},facts:{market:token,alerts},task:'brief'});const entry={id:randomUUID(),owner,address:watch.address,symbol:watch.symbol,content:result.content,createdAt:result.generatedAt};await workspace.change('briefs',records=>{records.push(entry);if(records.length>2000)records.splice(0,records.length-2000);});return json(res,200,entry);}finally{aiInFlight.delete(owner);}
+      const entry=await aiJournal.execute({owner,scope:'watch-brief:'+watch.id,requestId:input.requestId,payload:{id:watch.id}},()=>withAI(owner,async()=>{
+        const token=await market.details(watch.address),alerts=workspace.read('alerts').filter(item=>item.owner===owner&&item.address===watch.address).slice(-10);
+        const result=await generateCopilot({project:{name:token.name||watch.symbol,symbol:token.symbol||watch.symbol,description:'A watched Robinhood Chain token. Explain observed changes and missing information without recommending trades.',status:'watched'},facts:{market:token,alerts},task:'brief'});
+        const entry={id:randomUUID(),owner,address:watch.address,symbol:watch.symbol,content:result.content,createdAt:result.generatedAt};await workspace.change('briefs',records=>{records.push(entry);if(records.length>2000)records.splice(0,records.length-2000);});return entry;
+      }));return json(res,200,entry);
     }
     if(req.method==='GET'&&path==='/api/alerts')return json(res,200,workspace.read('alerts').filter(item=>item.owner===owner).reverse().slice(0,100));
     if(req.method==='POST'&&path==='/api/alerts/read'){const input=await body(req);await workspace.change('alerts',records=>{for(const item of records)if(item.owner===owner&&(!input.id||item.id===input.id))item.read=true;});return json(res,200,{ok:true});}
@@ -163,6 +176,7 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
       // A pre-launch vault is draft configuration, not a verified token/vault link.
       const vaultAddress=tokenAddress?suppliedVault:null;
       const launchHash=input.launchHash?String(input.launchHash):null;
+      if(tokenAddress&&!launchHash)await verifyImportedToken(tokenAddress);
       if(launchHash&&!/^0x[0-9a-fA-F]{64}$/.test(launchHash))throw new Error('Invalid launch transaction hash.');
       if(launchHash&&!tokenAddress)throw new Error('A launch receipt needs a token address.');
       let launchFactory=null,curveAddress=null;
@@ -185,60 +199,107 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='POST'&&publishUpdatePath){const project=await findProject(publishUpdatePath[1]);const input=await body(req);if(typeof input.public!=='boolean')throw new Error('Choose whether to share this update.');if(input.public&&!project.published)throw new Error('Publish your project page before sharing an update.');return json(res,200,await workspace.publishActivity(project.id,publishUpdatePath[2],input.public,input.revision));}
     const publishPagePath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/publication$/);
     if(req.method==='POST'&&publishPagePath){const project=await findProject(publishPagePath[1]),input=await body(req);if(typeof input.published!=='boolean')throw new Error('Choose whether to publish your project.');if(input.published){if(!project.tokenAddress)throw new Error('Launch or import an onchain token before publishing its page.');await verifyChain();const code=await publicClient.getCode({address:project.tokenAddress});if(!code||code==='0x')throw new Error('This token could not be verified on Robinhood Chain.');let tokenInfo;try{tokenInfo=await Promise.all(['symbol','decimals','totalSupply'].map(functionName=>publicClient.readContract({address:project.tokenAddress,abi:erc20Abi,functionName})));}catch{throw new Error('This address could not be verified as a token on Robinhood Chain.');}if(String(tokenInfo[0]).toUpperCase()!==project.symbol.toUpperCase())throw new Error('The project symbol does not match the onchain token. Import the correct token details.');const launch=await pons.launchRecord(project.tokenAddress);if(launch.deployer.toLowerCase()!==owner)throw new Error('Only the verified creating wallet can publish this project. Imported tokens can still be tracked privately.');}return json(res,200,await mutate(list=>{const record=list.find(item=>item.id===project.id);record.published=input.published;if(input.published)record.publishedAt=new Date().toISOString();return record;}));}
+    const publicEscrowPath=path.match(/^\/api\/public\/projects\/([a-f0-9-]+)\/escrow$/);
+    if(req.method==='GET'&&publicEscrowPath){const project=(await allProjects()).find(item=>item.id===publicEscrowPath[1]&&item.published&&item.tokenAddress&&item.vaultAddress);if(!project)return json(res,404,{error:'This project escrow is unavailable.'});return json(res,200,await pons.socialProposals(project,{before:url.searchParams.get('before'),limit:url.searchParams.get('limit')||10}));}
     const publicPath=path.match(/^\/api\/public\/projects\/([a-f0-9-]+)(\/snapshot)?$/);
     if(req.method==='GET'&&publicPath){const project=(await allProjects()).find(item=>item.id===publicPath[1]&&item.published&&item.tokenAddress);if(!project)return json(res,404,{error:'This project page is not available.'});if(publicPath[2])return json(res,200,await snapshot(project));return json(res,200,{project:publicProject(project),community:community.publicView(project,owner),growth:growth.publicView(project,owner),activity:(await workspace.activity(project.id,{publicOnly:true})).map(({id,kind,source,title,content,createdAt,updatedAt,transactionHash})=>({id,kind,source,title,content,createdAt,updatedAt,transactionHash}))});}
+    const vaultLinkPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/vault-link$/);
+    if(req.method==='POST'&&vaultLinkPath){const project=await findProject(vaultLinkPath[1]),input=await body(req);if(input.confirm!==true||!project.tokenAddress)throw new Error('Confirm that you want to restore this token’s verified fee vault.');const launch=await pons.launchRecord(project.tokenAddress);await pons.verifyVault(launch.creatorFeeRecipient,owner);return json(res,200,await mutate(records=>{const record=records.find(item=>item.id===project.id&&item.owner===owner);if(!record)throw Object.assign(new Error('Project not found.'),{status:404});record.vaultAddress=launch.creatorFeeRecipient;return record;}));}
     const snapshotPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/snapshot$/);
     if(req.method==='GET'&&snapshotPath)return json(res,200,await snapshot(await findProject(snapshotPath[1])));
     const assistantPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/assistant$/);
     if(req.method==='POST'&&assistantPath){const project=await findProject(assistantPath[1]),input=await body(req),aiName=String(input.aiName||'Copilot').trim(),aiVoice=String(input.aiVoice||'Clear & practical'),aiGoal=String(input.aiGoal||'').trim();if(aiName.length>40||aiGoal.length>500||!['Clear & practical','Playful & bold','Warm & community-first'].includes(aiVoice))throw new Error('Choose a name under 40 characters, an available voice and a goal under 500 characters.');return json(res,200,await mutate(list=>{const record=list.find(p=>p.id===project.id);Object.assign(record,{aiName,aiVoice,aiGoal});return record;}));}
+    const assistantActionsPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/assistant\/actions(?:\/([a-f0-9-]+))?$/);
+    if(assistantActionsPath){
+      const project=await findProject(assistantActionsPath[1]);
+      if(req.method==='GET'&&!assistantActionsPath[2])return json(res,200,assistantActions.get(project));
+      if(req.method==='POST'&&assistantActionsPath[2]){
+        const input=await body(req,80000),item=assistantActions.get(project).items.find(row=>row.id===assistantActionsPath[2]);
+        if(!item)throw Object.assign(new Error('Action not found.'),{status:404});
+        if(input.action==='apply'&&item.kind==='distribution'&&item.status!=='applied'){
+          const current=await snapshot(project);if(current.vault?.kind!=='holders'||current.vault.controller?.toLowerCase()!==owner)throw new Error('This project does not have a holders vault controlled by your wallet. Check Treasury before requesting a payout review.');
+        }
+        return json(res,200,await assistantActions.change(project,assistantActionsPath[2],input));
+      }
+    }
+    const assistantPlanPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/assistant\/plan$/);
+    if(req.method==='POST'&&assistantPlanPath){
+      const project=await findProject(assistantPlanPath[1]),input=await body(req),content=typeof input.content==='string'?input.content.trim():'';
+      if(!content||content.length>4000)throw new Error('Describe the action in 1 to 4,000 characters.');
+      if(typeof input.requestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.requestId))throw new Error('A request identifier is required. Reload and try again.');
+      const chatId=input.chatId??null;if(chatId!==null&&(typeof chatId!=='string'||!workspace.read('chats').some(chat=>chat.id===chatId&&chat.projectId===project.id&&chat.owner===owner)))throw Object.assign(new Error('Chat not found.'),{status:404});
+      const response=await aiJournal.execute({owner,scope:'assistant:'+project.id,requestId:input.requestId,payload:{projectId:project.id,chatId,content}},()=>withChatPreparation(owner,async()=>{
+        const facts=await projectChatFacts(project);
+        const result=await operations.write(project,'assistant',()=>generateCopilot({project,task:'assistant',facts:{...facts,currentTime:new Date().toISOString(),timezone:'UTC',ownerRequest:content,availableActions:['calendar','event','distribution'],distributionEligibility:{available:facts.snapshot?.vault?.kind==='holders'&&facts.snapshot.vault.controller?.toLowerCase()===owner,note:'Payout review only. Amounts and recipients are prepared in Treasury from fresh observations and require the owner wallet signature.'}}}));
+        const proposal=parseAssistantPlan(result.content);
+        if(proposal.proposals.some(item=>item.kind==='distribution')&&!(facts.snapshot?.vault?.kind==='holders'&&facts.snapshot.vault.controller?.toLowerCase()===owner))throw Object.assign(new Error('A holder-payout review requires a verified holders vault controlled by your wallet. No action was saved.'),{status:503,code:'AI_RESPONSE_INVALID'});
+        return assistantActions.record(project,{...proposal,requestId:input.requestId,chatId});
+      }));
+      const current=new Map(assistantActions.get(project).items.map(item=>[item.id,item]));
+      return json(res,200,{...response,items:response.items.map(item=>current.get(item.id)).filter(Boolean)});
+    }
     const chatPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/chat$/);
     if(req.method==='POST'&&chatPath){
       const project=await findProject(chatPath[1]),input=await body(req,40000),content=typeof input.content==='string'?input.content.trim():'';
       if(!content||content.length>4000)throw new Error('Write a message between 1 and 4,000 characters.');
-      let chat=null;
-      if(input.chatId!==undefined&&input.chatId!==null){if(typeof input.chatId!=='string')throw new Error('Choose a chat.');chat=workspace.read('chats').find(item=>item.id===input.chatId&&item.projectId===project.id&&item.owner===owner);if(!chat)throw Object.assign(new Error('Chat not found.'),{status:404});}
-      if(aiInFlight.has(owner))return json(res,429,{error:'Your chat reply is already being written.'});
-      const turns=[...storedTurns(chat?.messages),{role:'user',content}];
-      const facts=await projectChatFacts(project);
-      const result=await operations.write(project,'chat',()=>generateCopilot({project,facts,task:'chat',messages:turns}));
-      const saved=await workspace.change('chats',records=>{
-        let record=chat?records.find(item=>item.id===chat.id):null;
-        if(!record){const own=records.filter(item=>item.projectId===project.id&&item.owner===owner).sort((a,b)=>a.updatedAt.localeCompare(b.updatedAt));while(own.length>=20){const index=records.findIndex(item=>item.id===own.shift().id);records.splice(index,1);}record={id:randomUUID(),projectId:project.id,owner,createdAt:result.generatedAt,updatedAt:result.generatedAt,messages:[]};records.push(record);}
-        record.messages.push({role:'user',content,createdAt:result.generatedAt},{role:'assistant',content:result.content,createdAt:result.generatedAt});
-        if(record.messages.length>40)record.messages.splice(0,record.messages.length-40);
-        record.updatedAt=result.generatedAt;
-        return record;
-      });
-      const coverage=facts.xray?{checkedAt:facts.xray.checkedAt,fromBlock:facts.xray.observedTrading?.coverage?.fromBlock??null,toBlock:facts.xray.observedTrading?.coverage?.toBlock??null,note:facts.xray.scope}:null;
-      return json(res,200,{chatId:saved.id,reply:result.content,coverage,generatedAt:result.generatedAt,messages:saved.messages});
+      const response=await aiJournal.execute({owner,scope:'chat:'+project.id,requestId:input.requestId,payload:{projectId:project.id,chatId:input.chatId??null,content}},()=>withChatPreparation(owner,async()=>{
+        let chat=null;
+        if(input.chatId!==undefined&&input.chatId!==null){if(typeof input.chatId!=='string')throw new Error('Choose a chat.');chat=workspace.read('chats').find(item=>item.id===input.chatId&&item.projectId===project.id&&item.owner===owner);if(!chat)throw Object.assign(new Error('Chat not found.'),{status:404});}
+        if(aiInFlight.has(owner))throw Object.assign(new Error('Your chat reply is already being written.'),{status:429});
+        const turns=[...storedTurns(chat?.messages),{role:'user',content}],facts=await projectChatFacts(project);
+        const result=await operations.write(project,'chat',()=>generateCopilot({project,facts,task:'chat',messages:turns}));
+        const saved=await workspace.change('chats',records=>{
+          let record=chat?records.find(item=>item.id===chat.id):null;
+          if(!record){record={id:randomUUID(),projectId:project.id,owner,createdAt:result.generatedAt,updatedAt:result.generatedAt,messages:[]};records.push(record);}
+          record.messages.push({role:'user',content,createdAt:result.generatedAt},{role:'assistant',content:result.content,createdAt:result.generatedAt});
+          record.updatedAt=result.generatedAt;return record;
+        });
+        const coverage=facts.xray?{checkedAt:facts.xray.checkedAt,fromBlock:facts.xray.observedTrading?.coverage?.fromBlock??null,toBlock:facts.xray.observedTrading?.coverage?.toBlock??null,note:facts.xray.scope}:null;
+        const page=chatPage(saved);
+        return {chatId:saved.id,reply:result.content,coverage,generatedAt:result.generatedAt,messages:page.messages,hasMore:page.hasMore,before:page.before,totalMessages:page.totalMessages};
+      }));
+      return json(res,200,response);
     }
     const chatRemovePath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/chats\/remove$/);
-    if(req.method==='POST'&&chatRemovePath){const project=await findProject(chatRemovePath[1]),input=await body(req);await workspace.change('chats',records=>{const index=records.findIndex(item=>item.id===input.chatId&&item.projectId===project.id&&item.owner===owner);if(index<0)throw Object.assign(new Error('Chat not found.'),{status:404});records.splice(index,1);});return json(res,200,{ok:true});}
+    if(req.method==='POST'&&chatRemovePath){
+      const project=await findProject(chatRemovePath[1]),input=await body(req);
+      if(chatPreparing.has(owner)||workspace.read('ai_requests').some(item=>item.owner===owner&&item.scope==='chat:'+project.id&&item.status==='running'&&item.leaseUntil>Date.now()))throw Object.assign(new Error('Wait for the current chat request to finish before deleting a conversation.'),{status:409});
+      await workspace.transaction(['chats','ai_requests'],documents=>{
+        const index=documents.chats.findIndex(item=>item.id===input.chatId&&item.projectId===project.id&&item.owner===owner);if(index<0)throw Object.assign(new Error('Chat not found.'),{status:404});documents.chats.splice(index,1);
+        for(const entry of documents.ai_requests){if(entry.owner===owner&&entry.scope==='chat:'+project.id&&entry.result?.chatId===input.chatId){entry.status='failed';entry.error={status:410,code:'CHAT_DELETED',message:'This conversation was deleted. Start a new chat.'};delete entry.result;}}
+      });return json(res,200,{ok:true});
+    }
+    const chatExportPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/chats\/([a-f0-9-]+)\/export$/);
+    if(req.method==='GET'&&chatExportPath){const project=await findProject(chatExportPath[1]);const chat=workspace.read('chats').find(item=>item.id===chatExportPath[2]&&item.projectId===project.id&&item.owner===owner);if(!chat)throw Object.assign(new Error('Chat not found.'),{status:404});return json(res,200,{id:chat.id,messages:chat.messages,createdAt:chat.createdAt,updatedAt:chat.updatedAt});}
     const chatsPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/chats(\/([a-f0-9-]+))?$/);
     if(req.method==='GET'&&chatsPath){
       const project=await findProject(chatsPath[1]);
-      if(!chatsPath[3])return json(res,200,{items:chatSummaries(workspace.read('chats'),project,owner)});
+      if(!chatsPath[3])return json(res,200,chatListPage(chatSummaries(workspace.read('chats'),project,owner),{offset:url.searchParams.get('offset'),limit:url.searchParams.get('limit')}));
       const chat=workspace.read('chats').find(item=>item.id===chatsPath[3]&&item.projectId===project.id&&item.owner===owner);
       if(!chat)throw Object.assign(new Error('Chat not found.'),{status:404});
-      return json(res,200,{id:chat.id,messages:chat.messages,createdAt:chat.createdAt,updatedAt:chat.updatedAt});
+      return json(res,200,chatPage(chat,{before:url.searchParams.get('before'),limit:url.searchParams.get('limit')}));
     }
     if(req.method==='POST'&&path==='/api/copilot'){
-      const input=await body(req);const project=await findProject(input.projectId);if(!['brief','post','plan'].includes(input.task))throw new Error('Choose a daily brief, a post draft, or a community plan.');
-      if(aiInFlight.has(owner))return json(res,429,{error:'Your draft is already being written.'});
-      let facts=null;if(project.tokenAddress){try{const chain=await snapshot(project);let observedMarket=null;try{observedMarket=await market.details(project.tokenAddress);}catch{}facts={...chain,market:observedMarket};}catch{facts={error:'Chain data is currently unavailable.'};}}
-      const operatingContext=await operations.context(project),result=await operations.write(project,input.task,()=>generateCopilot({project,facts:{chain:facts,operatingContext},task:input.task}));const titles={brief:'Daily brief',post:'Social draft',plan:'7-day plan'};const entry=await workspace.appendActivity(project.id,{kind:input.task,title:titles[input.task],content:result.content,createdAt:result.generatedAt,public:false});return json(res,200,{...result,activityId:entry.id});
+      const input=await body(req),project=await findProject(input.projectId);if(!['brief','post','plan'].includes(input.task))throw new Error('Choose a daily brief, a post draft, or a community plan.');
+      return json(res,200,await aiJournal.execute({owner,scope:'writing:'+project.id,requestId:input.requestId,payload:{projectId:project.id,task:input.task}},async()=>{
+        if(aiInFlight.has(owner))throw Object.assign(new Error('Your draft is already being written.'),{status:429});
+        let facts=null;if(project.tokenAddress){try{const chain=await snapshot(project);let observedMarket=null;try{observedMarket=await market.details(project.tokenAddress);}catch{}facts={...chain,market:observedMarket};}catch{facts={error:'Chain data is currently unavailable.'};}}
+        const operatingContext=await operations.context(project),result=await operations.write(project,input.task,()=>generateCopilot({project,facts:{chain:facts,operatingContext},task:input.task}));
+        const titles={brief:'Daily brief',post:'Social draft',plan:'7-day plan'};
+        const entry=await workspace.appendActivity(project.id,{kind:input.task,title:titles[input.task],content:result.content,...(result.factualBasis?{factualBasis:result.factualBasis}:{}),createdAt:result.generatedAt,public:false});return {...result,activityId:entry.id};
+      }));
     }
-    if(req.method==='GET'&&path==='/api/launch/options')return json(res,200,{...(await pons.options(owner)),aiConfigured:aiConfigured()});
+    if(req.method==='GET'&&path==='/api/launch/options')return json(res,200,{...(await pons.options(owner)),aiConfigured:aiConfigured(),socialEscrowAvailable:true,escrowAuthorization:'controller'});
     if(req.method==='POST'&&path==='/api/launch/assist'){
       const input=await body(req);
-      return json(res,200,await withAI(owner,async()=>{
+      return json(res,200,await aiJournal.execute({owner,scope:'launch-assist',requestId:input.requestId,payload:{task:input.task,idea:input.idea,draft:input.draft}},()=>withAI(owner,async()=>{
         const task=String(input.task||'');
         if(!['identity','fee'].includes(task))throw new Error('Choose an available launch assist.');
         const cleanDraft={};for(const key of ['name','symbol','description','website','x','telegram'])if(typeof input.draft?.[key]==='string')cleanDraft[key]=String(input.draft[key]).slice(0,2000);
         if(Number.isSafeInteger(input.draft?.configId))cleanDraft.configId=input.draft.configId;
         const facts=task==='fee'?await pons.options(owner):null;
         return launchAssist({task,idea:input.idea,draft:cleanDraft,facts:facts?{maxCreatorTaxBps:facts.maxCreatorTaxBps,feeETH:facts.feeETH,configs:facts.configs.map(config=>({id:config.id,curveFeeBps:config.curveFeeBps,graduationThreshold:config.graduationThreshold}))}:null});
-      }));
+      })));
     }
     if(req.method==='POST'&&path==='/api/launch/prepare')return json(res,200,await pons.prepareLaunch(owner,await body(req)));
     if(req.method==='POST'&&path==='/api/vault/prepare')return json(res,200,await pons.prepareVault(owner,await body(req)));
@@ -247,10 +308,10 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     const revenuePath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/revenue\/prepare$/);
     if(req.method==='POST'&&revenuePath){const project=await findProject(revenuePath[1]),input=await body(req);return json(res,200,await pons.revenueAction(owner,project,input.action,input.recipient));}
     const distributionPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/distribution\/prepare$/);
-    if(req.method==='POST'&&distributionPath){const project=await findProject(distributionPath[1]);const holdersResult=await market.holders(project.tokenAddress);if(!holdersResult.holderDataAvailable)throw new Error('Holder data is temporarily unavailable. Try again shortly.');return json(res,200,await pons.prepareDistribution(owner,project,holdersResult));}
+    if(req.method==='POST'&&distributionPath){const project=await findProject(distributionPath[1]),input=await body(req);const holdersResult=input.reviewId?null:await market.holders(project.tokenAddress);if(holdersResult&&!holdersResult.holderDataAvailable)throw new Error('Holder data is temporarily unavailable. Try again shortly.');return json(res,200,await pons.prepareDistribution(owner,project,holdersResult,input));}
     const escrowPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/community\/(prepare|proposals)$/);
-    if(escrowPath&&req.method==='POST'&&escrowPath[2]==='prepare'){const project=await findProject(escrowPath[1]),input=await body(req);if(String(input.action)==='execute'&&!social.get(project).account)throw new Error('Connect your project X account before releasing escrow.');return json(res,200,await pons.socialEscrowAction(owner,project,String(input.action||''),input));}
-    if(escrowPath&&req.method==='GET'&&escrowPath[2]==='proposals'){const project=await findProject(escrowPath[1]);return json(res,200,await pons.socialProposals(project));}
+    if(escrowPath&&req.method==='POST'&&escrowPath[2]==='prepare'){const project=await findProject(escrowPath[1]),input=await body(req);if(String(input.action)==='execute'&&input.confirmWalletControl!==true)throw new Error('Review and confirm the controller-wallet release conditions.');return json(res,200,await pons.socialEscrowAction(owner,project,String(input.action||''),input));}
+    if(escrowPath&&req.method==='GET'&&escrowPath[2]==='proposals'){const project=await findProject(escrowPath[1]);return json(res,200,await pons.socialProposals(project,{before:url.searchParams.get('before'),limit:url.searchParams.get('limit')||10}));}
     if(req.method==='GET'&&!path.startsWith('/api/')){
       const requested=resolve(root,'dist',path==='/'||/^\/project\/[a-f0-9-]+$/.test(path)?'index.html':`.${path}`);
       const distRoot=resolve(root,'dist');
@@ -258,7 +319,7 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
       try{await stat(requested);const file=await readFile(requested);res.writeHead(200,{'Content-Type':({'.html':'text/html','.js':'application/javascript','.css':'text/css','.svg':'image/svg+xml'}[extname(requested)]||'application/octet-stream'),'X-Content-Type-Options':'nosniff'});return res.end(file);}catch{res.writeHead(404);return res.end('Build the app with pnpm build, or use pnpm dev.');}
     }
     json(res,404,{error:'Route not found.'});
-  }catch(error){const message=error.shortMessage||error.message||'The request failed.',technical=/URL:|Request body|Contract Call:|Version:|fetch failed|HTTP request|ECONN|SQLITE_|database|no such table/i.test(message);json(res,error.name==='Error'&&[404,409,429,503].includes(error.status)?error.status:400,{error:/insufficient funds|insufficient balance|exceeds the balance/i.test(message)?'Your wallet needs enough ETH for this action and network gas.':technical?'This service is temporarily unavailable. Please try again shortly.':message.slice(0,500),...(['AI_ACCESS','AI_BUSY','AI_TIMEOUT','AI_UNAVAILABLE','AI_RESPONSE_INVALID'].includes(error.code)?{code:error.code}:{})});}
+  }catch(error){const message=error.shortMessage||error.message||'The request failed.',technical=/URL:|Request body|Contract Call:|Version:|fetch failed|HTTP request|ECONN|SQLITE_|database|no such table/i.test(message);json(res,error.name==='Error'&&[404,409,410,429,503].includes(error.status)?error.status:400,{error:/insufficient funds|insufficient balance|exceeds the balance/i.test(message)?'Your wallet needs enough ETH for this action and network gas.':technical?'This service is temporarily unavailable. Please try again shortly.':message.slice(0,500),...(['AI_ACCESS','AI_BUSY','AI_TIMEOUT','AI_UNAVAILABLE','AI_RESPONSE_INVALID','AI_REQUEST_PENDING','AI_REQUEST_INTERRUPTED','AI_REQUEST_FAILED','AI_REQUEST_CONFLICT','CHAT_DELETED'].includes(error.code)?{code:error.code}:{})});}
 }));
 let monitorTimer;
 server.on('listening',()=>{monitorTimer=setInterval(()=>{monitor.check().catch(()=>{});operations.tick().catch(()=>{});},60000);monitorTimer.unref();});

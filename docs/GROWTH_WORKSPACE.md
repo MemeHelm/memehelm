@@ -31,6 +31,8 @@ The initial finish review requested two corrections: reveal the active horizonta
 
 The verdict pass returned **ship** for the two scored fixes in this extension, with both resolved and no regressions observed in the ten required captures. This is not a whole-product audit or a claim of full keyboard/device coverage. After the UI rebuild, the verified MemeHelm listener on port 4318 was restarted with the existing ignored environment file; the real-service acceptance script passed again against that process. The database was preserved.
 
+The full-suite pass also exposed errors in the test-only Sentinel harness: artifact bytecode extraction, CREATE2 input encoding/address prediction, time advancement, contract call targets and the mock manager's full-precision division. Corrections are limited to tests and the explicitly test-only pool manager. They do not establish real v4 integration or an audit of any contract.
+
 ## Remaining integrations
 
 Real X OAuth/API acceptance requires the user's developer application. Discord/Telegram remain community links and manual content destinations. Public hosting, production backups, unattended hosted monitoring, richer external news/social data, audited contracts and human-signed mainnet acceptance remain separate work. This iteration does not claim full MemeOS feature parity.

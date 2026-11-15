@@ -8,21 +8,23 @@ const revision=(record,value)=>{if(!Number.isSafeInteger(value)||value!==(record
 const legacyLinks=project=>({website:project.website||'',x:project.x||'',telegram:project.telegram||'',discord:''});
 function links(input){const result={};for(const key of ['website','x','telegram','discord']){result[key]=projectLink(input?.[key],key);if(key==='discord'&&result[key]){const url=new URL(result[key]);if(!(['discord.gg','www.discord.gg'].includes(url.hostname)&&/^\/[\w-]+\/?$/.test(url.pathname))&&!(['discord.com','www.discord.com'].includes(url.hostname)&&/^\/invite\/[\w-]+\/?$/.test(url.pathname)))throw fail('Use a discord.gg or discord.com/invite invitation link.');}}return result;}
 
+export function communityEventDetails(input,{now=Date.now()}={}){
+  const title=text(input?.title,120,'Event title'),description=text(input?.description,4000,'Event description');
+  if(!title||!description)throw fail('Add a title and event description.');
+  const start=Date.parse(input.startsAt),end=Date.parse(input.endsAt);
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||end-start>7*86400000||start>now+365*86400000)throw fail('Choose valid start and end times, up to seven days apart and within a year.');
+  const capacity=input.capacity===null||input.capacity===''?null:Number(input.capacity);
+  if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1||capacity>500))throw fail('Choose a capacity from 1 to 500, or leave it open.');
+  return{title,description,startsAt:iso(start),endsAt:iso(end),url:projectLink(input.url),capacity};
+}
+
 export function createCommunity(store,{now=()=>Date.now()}={}){
   const fresh=project=>({projectId:project.id,owner:project.owner,revision:0,links:legacyLinks(project),sharedLinks:legacyLinks(project),events:[]});
   const getState=project=>store.read('community').find(item=>item.projectId===project.id&&item.owner===project.owner)||fresh(project);
   const entries=(project,id)=>store.read('community_rsvps').filter(item=>item.projectId===project.id&&item.eventId===id);
   function stateFor(records,project){let state=records.find(item=>item.projectId===project.id&&item.owner===project.owner);if(!state){state=fresh(project);records.push(state);}return state;}
   function eventFor(state,id){const event=state.events.find(item=>item.id===id);if(!event)throw fail('Event not found.',404);return event;}
-  function eventDetails(input){
-    const title=text(input?.title,120,'Event title'),description=text(input?.description,4000,'Event description');
-    if(!title||!description)throw fail('Add a title and event description.');
-    const start=Date.parse(input.startsAt),end=Date.parse(input.endsAt);
-    if(!Number.isFinite(start)||!Number.isFinite(end)||end<=start||end-start>7*86400000||start>now()+365*86400000)throw fail('Choose valid start and end times, up to seven days apart and within a year.');
-    const capacity=input.capacity===null||input.capacity===''?null:Number(input.capacity);
-    if(capacity!==null&&(!Number.isSafeInteger(capacity)||capacity<1||capacity>500))throw fail('Choose a capacity from 1 to 500, or leave it open.');
-    return{title,description,startsAt:iso(start),endsAt:iso(end),url:projectLink(input.url),capacity};
-  }
+  const eventDetails=input=>communityEventDetails(input,{now:now()});
   function get(project){const state=getState(project);return{...state,events:state.events.map(event=>({...event,going:entries(project,event.id).length,attended:entries(project,event.id).filter(item=>item.attended).length}))};}
   async function saveLinks(project,input){await store.change('community',records=>{const state=stateFor(records,project);revision(state,input.revision);if(typeof input.share!=='boolean')throw fail('Choose whether to show the community links.');state.links=links(input.links);state.sharedLinks=input.share?{...state.links}:null;state.revision++;});return get(project);}
   async function changeEvent(project,id,input){
