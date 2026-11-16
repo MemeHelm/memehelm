@@ -143,10 +143,11 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
     else throw new Error('Choose a valid revenue action.');
     await client.simulateContract({address,abi,functionName,args,account:owner});return{chainId:4663,to:address,data:encodeFunctionData({abi,functionName,args}),value:'0',label:action,recipient:action==='release'?recipient:action==='claim'?launch.creatorFeeRecipient:null,amount:action==='release'?(same(recipient,state.vault.projectTreasury)?state.vault.projectPending:state.vault.auditPending):action==='claim'?state.revenue.claimable:null,expiresAt:new Date(now()+90000).toISOString()};
   }
-  // Counter-style holder payout: the keeper turns one explorer snapshot plus the
-  // current vault balance into one explicit distribute() transaction for the
-  // controller to review and sign. Nothing moves without that signature.
+  // Sample-based holder payout. Freeze one explorer response and its denominator
+  // for review; only an explicit acknowledgement of that same review can expose
+  // a transaction for the controller to sign.
   async function prepareDistribution(owner,project,holdersResult,input={}){
+    if(!same(owner,project.owner))throw new Error('This payout review belongs to another wallet. Prepare it from the project owner wallet.');
     const state=await snapshot(project);
     if(!state.vault||state.vault.kind!=='holders')throw new Error('Link this token to a verified holders vault before preparing payouts.');
     const compiled=await loadArtifact('HoldersVault'),balance=await read(state.vault.address,compiled.abi,'distributable');
@@ -156,16 +157,23 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
     let review,id=input.reviewId;
     if(id){
       review=payoutReviews.get(id);
-      if(!review||review.owner!==owner.toLowerCase()||review.projectId!==project.id||!same(review.vault,state.vault.address))throw new Error('This payout review expired. Prepare a new snapshot.');
+      if(!review||review.owner!==owner.toLowerCase()||review.projectId!==project.id||!same(review.vault,state.vault.address)||!same(review.token,project.tokenAddress))throw new Error('This payout review expired. Prepare a new snapshot.');
       if(review.rounds!==state.vault.rounds)throw new Error('A payout round was already signed. Prepare a new snapshot before paying again.');
     }else{
       const launch=await nativeRecord(project.tokenAddress),exclusions=holdersExclusions({curve:launch.curve,poolManager:PONS.manager.address,vault:state.vault.address});
       const round=computeHoldersPayout({entries:holdersResult.holders,amountWei:balance,exclude:exclusions});
-      id=randomUUID();review={owner:owner.toLowerCase(),projectId:project.id,vault:state.vault.address,rounds:state.vault.rounds,round,holdersCount:holdersResult.holdersCount??null,checkedAt:holdersResult.checkedAt??null,expires:now()+600000};
+      const checkedAt=typeof holdersResult.checkedAt==='string'&&Number.isFinite(Date.parse(holdersResult.checkedAt))?new Date(holdersResult.checkedAt).toISOString():null;
+      const paginationComplete=typeof holdersResult.paginationComplete==='boolean'?holdersResult.paginationComplete:null;
+      const coverage=holdersResult.coverage==='partial'||paginationComplete!==null?'partial':'unknown';
+      const tokenDecimals=Number.isInteger(state.decimals)&&state.decimals>=0&&state.decimals<=255?state.decimals:null;
+      const block=holdersResult.snapshotBlock,snapshotBlock=(typeof block==='string'&&/^(0|[1-9]\d*)$/.test(block)||typeof block==='bigint'&&block>=0n)?String(block):null;
+      const evidence={source:typeof holdersResult.source==='string'&&holdersResult.source.trim()?holdersResult.source.trim().slice(0,200):null,checkedAt,snapshotBlock,snapshotBlockHash:snapshotBlock!==null&&/^0x[\da-f]{64}$/i.test(holdersResult.snapshotBlockHash||'')?holdersResult.snapshotBlockHash:null,paginationComplete,balanceUnit:'token-base-units',tokenDecimals,sampled:round.sampled,returned:Number.isSafeInteger(holdersResult.returned)&&holdersResult.returned>=round.returned?holdersResult.returned:round.returned,duplicateRows:Number.isSafeInteger(holdersResult.duplicateRows)&&holdersResult.duplicateRows>=0?holdersResult.duplicateRows:round.duplicateRows,denominatorBalance:round.coveredBalance,protocolExclusions:exclusions,calculationVersion:'sample-pro-rata-v1'};
+      id=randomUUID();review={owner:owner.toLowerCase(),projectId:project.id,token:project.tokenAddress,vault:state.vault.address,rounds:state.vault.rounds,round,holdersCount:Number.isSafeInteger(holdersResult.holdersCount)&&holdersResult.holdersCount>=0?holdersResult.holdersCount:null,checkedAt,coverage,evidence,sampleAcknowledged:false,expires:now()+600000};
       if(payoutReviews.size>=200)payoutReviews.delete(payoutReviews.keys().next().value);payoutReviews.set(id,review);
     }
     const round=review.round,selected=selectHoldersPayout(round,input.excludedRecipients||[]),recipients=selected.payouts.map(payout=>payout.address),amounts=selected.payouts.map(payout=>payout.amount);
-    if(selected.total>balance)throw new Error('The vault balance changed. Prepare a new snapshot.');
+    if(balance<round.snapshotAmount)throw new Error('The vault balance changed. Prepare a new snapshot.');
+    if(input.reviewId&&input.confirmSampleCoverage===true)review.sampleAcknowledged=true;
     let simulationError=null;const failedRecipients=[];
     if(!recipients.length)simulationError='Select at least one recipient before preparing a payout.';
     else try{await client.simulateContract({address:state.vault.address,abi:compiled.abi,functionName:'distribute',args:[recipients,amounts],account:owner});}
@@ -185,7 +193,8 @@ export function createPons({client=publicClient,now=()=>Date.now(),loadArtifact=
       }
       if(rejectsTransfer(error))await locate(selected.payouts);
     }
-    return {chainId:4663,to:state.vault.address,...(!simulationError?{data:encodeFunctionData({abi:compiled.abi,functionName:'distribute',args:[recipients,amounts]})}:{}),value:'0',label:'distribute',reviewId:id,reviewExpiresAt:new Date(review.expires).toISOString(),simulationError,failedRecipients,total:formatEther(selected.total),retained:formatEther(selected.retained),snapshotTotal:formatEther(round.snapshotAmount),recipients,amounts:amounts.map(amount=>formatEther(amount)),reviewRecipients:round.payouts.map(payout=>({address:payout.address,amount:formatEther(payout.amount)})),excludedRecipients:selected.excludedRecipients,round:{included:recipients.length,eligible:round.eligible,sampled:round.sampled,holdersCount:review.holdersCount,checkedAt:review.checkedAt,minimum:formatEther(BigInt(round.minPayoutWei)),coveredBalance:round.coveredBalance,dropped:round.dropped.map(item=>({...item,amount:formatEther(BigInt(item.amount))}))},expiresAt:new Date(now()+90000).toISOString()};
+    if(review.expires<=now())throw new Error('This payout review expired. Prepare a new snapshot.');
+    return {chainId:4663,to:state.vault.address,...(!simulationError&&review.sampleAcknowledged?{data:encodeFunctionData({abi:compiled.abi,functionName:'distribute',args:[recipients,amounts]})}:{}),value:'0',label:'distribute',reviewId:id,reviewExpiresAt:new Date(review.expires).toISOString(),sampleAcknowledged:review.sampleAcknowledged,requiresSampleAcknowledgement:!review.sampleAcknowledged,review:{mode:'sample',coverage:review.coverage,evidence:{...review.evidence,protocolExclusions:[...review.evidence.protocolExclusions]},outsideSample:'Wallets outside this sample receive no payout in this round.',unallocatedIncoming:formatEther(balance-round.snapshotAmount),additionalFundsNote:'Additional funds received after this review was created are not allocated in this review.'},simulationError,failedRecipients,total:formatEther(selected.total),retained:formatEther(selected.retained),snapshotTotal:formatEther(round.snapshotAmount),recipients,amounts:amounts.map(amount=>formatEther(amount)),reviewRecipients:round.payouts.map(payout=>({address:payout.address,amount:formatEther(payout.amount)})),excludedRecipients:selected.excludedRecipients,round:{included:recipients.length,eligible:round.eligible,sampled:round.sampled,returned:review.evidence.returned,duplicateRows:review.evidence.duplicateRows,holdersCount:review.holdersCount,checkedAt:review.checkedAt,minimum:formatEther(BigInt(round.minPayoutWei)),coveredBalance:round.coveredBalance,dropped:round.dropped.map(item=>({...item,amount:formatEther(BigInt(item.amount))}))},expiresAt:new Date(Math.min(now()+90000,review.expires)).toISOString()};
   }
   // Community-escrow releases preserve the onchain controller and public window.
   // Social accounts neither authorize releases nor establish a community veto.

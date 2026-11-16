@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {computeHoldersPayout,selectHoldersPayout,holdersExclusions,MIN_HOLDERS_PAYOUT_WEI} from '../shared/distribution.mjs';
+import {computeHoldersPayout,normalizeHolderBalances,selectHoldersPayout,holdersExclusions,MIN_HOLDERS_PAYOUT_WEI} from '../shared/distribution.mjs';
 
 const a='0x1111111111111111111111111111111111111111',b='0x2222222222222222222222222222222222222222',c='0x3333333333333333333333333333333333333333';
 const entry=(address,balance)=>({address,balance});
@@ -50,10 +50,33 @@ test('explicit exclusions preserve every original share and leave excluded ETH i
  assert.equal(selectHoldersPayout(round,[a,b,c]).total,0n);
  assert.throws(()=>selectHoldersPayout(round,['0x'+'4'.repeat(40)]),/not in the reviewed payout snapshot/);
 });
-test('duplicate balances are merged before sharing',()=>{
+test('identical duplicate balances are deduplicated without increasing a share',()=>{
   const round=computeHoldersPayout({entries:[entry(a,'50'),entry(a,'50'),entry(a,'50'),entry(b,'50')],amountWei:100n,minPayoutWei:1n});
   assert.equal(round.payouts.length,2);
-  assert.deepEqual([...round.payouts].sort((x,y)=>x.amount>y.amount?-1:1).map(payout=>payout.amount),[75n,25n]);
+  assert.deepEqual(round.payouts.map(payout=>payout.amount),[50n,50n]);
+  assert.equal(round.coveredBalance,'100');assert.equal(round.sampled,2);assert.equal(round.returned,4);assert.equal(round.duplicateRows,2);
+  assert.throws(()=>computeHoldersPayout({entries:[entry(a,'50'),entry(a,'51'),entry(b,'50')],amountWei:100n,minPayoutWei:1n}),/Conflicting balances/);
+});
+
+test('invalid rows cannot silently shrink the denominator or coerce a missing balance to zero',()=>{
+  for(const balance of [undefined,null,false,0,1,1.5,'',' ','-1','1.5','1e6','0x10',(1n<<256n).toString()]){
+    assert.throws(()=>computeHoldersPayout({entries:[entry(a,'100'),entry(b,balance)],amountWei:100n,minPayoutWei:1n}),/holder balance/i);
+  }
+  assert.throws(()=>computeHoldersPayout({entries:[entry(a,'100'),entry('not-a-wallet','100')],amountWei:100n,minPayoutWei:1n}),/holder address/i);
+  assert.throws(()=>computeHoldersPayout({entries:[entry(a,'0'),entry(b,0n)],amountWei:100n,minPayoutWei:1n}),/No eligible holder balances/);
+  const max=((1n<<256n)-1n).toString();assert.equal(normalizeHolderBalances([entry(a,max)]).holders[0].balance,max);
+});
+
+test('sample count and denominator distinguish valid observed balances from excluded protocol addresses',()=>{
+  const round=computeHoldersPayout({entries:[entry(a,'700'),entry(b,'300'),entry(c,'0'),entry(a,'700')],amountWei:1000n,exclude:[a],minPayoutWei:1n});
+  assert.equal(round.sampled,2);assert.equal(round.returned,4);assert.equal(round.duplicateRows,1);assert.equal(round.eligible,1);
+  assert.equal(round.coveredBalance,'300');assert.deepEqual(round.payouts,[{address:b,amount:1000n}]);
+});
+
+test('input row order cannot change tied balances selected at the 200-wallet limit',()=>{
+  const entries=Array.from({length:205},(_,i)=>entry(wallet(i),'1'));
+  const input={amountWei:1000n,minPayoutWei:1n},first=computeHoldersPayout({...input,entries}),reversed=computeHoldersPayout({...input,entries:[...entries].reverse()});
+  assert.deepEqual(first.payouts,reversed.payouts);assert.deepEqual(first.dropped,reversed.dropped);
 });
 test('rounds refuse unusable inputs instead of inventing shares',()=>{
   assert.throws(()=>computeHoldersPayout({entries:[entry(a,'1')],amountWei:0n}),/No ETH is available/);

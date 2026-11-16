@@ -106,7 +106,7 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(path.startsWith('/api/')&&!publicApi&&!context.getStore()?.owner)return json(res,401,{error:'Sign in with your wallet to open your private workspace.'});
     const owner=context.getStore()?.owner;
     if(req.method==='GET'&&path==='/api/public/discover')return json(res,200,{projects:(await allProjects()).filter(item=>item.published&&item.tokenAddress).map(publicProject)});
-    if(req.method==='GET'&&path==='/api/market/launches')return json(res,200,await market.feed());
+    if(req.method==='GET'&&path==='/api/market/launches')return json(res,200,await market.feed({refresh:url.searchParams.get('refresh')==='1'}));
     const marketPath=path.match(/^\/api\/market\/tokens\/(0x[a-fA-F0-9]{40})$/);
     if(req.method==='GET'&&marketPath){const token=await market.details(marketPath[1]);return json(res,200,{token,history:market.history(marketPath[1]),trades:{items:[],available:false,scope:'Load recent trades separately.'}});}
     const researchPath=path.match(/^\/api\/market\/tokens\/(0x[a-fA-F0-9]{40})\/research$/);

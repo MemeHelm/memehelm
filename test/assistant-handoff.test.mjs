@@ -40,7 +40,7 @@ test('a failed payout preparation consumes the original handoff and can only ret
   const props={project,wallet,selector:null,createProject(){},reviewRequest:53,onReviewHandled(){props.reviewRequest=undefined;}};
   const api=async(path,body)=>{calls.push({path,body});if(path.endsWith('/snapshot'))return snapshot();if(path.endsWith('/distribution/prepare')){if(fail)throw new Error('Payout observations are temporarily unavailable.');return review();}throw new Error('Unexpected request.');};
   const component=treasury(props,api,walletCalls);let tree=await cycle(component,4);assert.equal(props.reviewRequest,undefined);assert.match(textOf(tree),/temporarily unavailable/);assert.equal(calls.filter(call=>call.body).length,1);
-  await cycle(component,3);assert.equal(calls.filter(call=>call.body).length,1);fail=false;const retry=findNode(tree,node=>node.type==='button'&&textOf(node).startsWith('Prepare a payout round'));assert.ok(retry);await retry.props.onClick();tree=await cycle(component,2);assert.match(textOf(tree),/Review holder payout/);assert.equal(calls.filter(call=>call.body).length,2);assert.deepEqual(walletCalls,[]);component.unmount();
+  await cycle(component,3);assert.equal(calls.filter(call=>call.body).length,1);fail=false;const retry=findNode(tree,node=>node.type==='button'&&textOf(node).startsWith('Preview sample payout'));assert.ok(retry);await retry.props.onClick();tree=await cycle(component,2);assert.match(textOf(tree),/Review holder payout/);assert.equal(calls.filter(call=>call.body).length,2);assert.deepEqual(walletCalls,[]);component.unmount();
 });
 
 function copilot(props){

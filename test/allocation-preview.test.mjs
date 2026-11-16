@@ -58,10 +58,10 @@ test('launch keeps allocation preview inside fixed split and retains all four re
   try{
     let tree=harness.render();assert.equal(findNode(tree,node=>node.type===AllocationPreview).props.reserveBps,2500);
     assert.match(normalized(tree),/Recipients and percentages cannot be changed after activation/);
-    for(const label of ['One recipient','Two-wallet split','Holder payouts','Community escrow'])assert.ok(findNode(tree,node=>node.type==='button'&&normalized(node).includes(label)));
+    for(const label of ['One recipient','Two-wallet split','Holder sample payouts','Community escrow'])assert.ok(findNode(tree,node=>node.type==='button'&&normalized(node).includes(label)));
     findNode(tree,node=>node.type==='input'&&node.props['aria-label']==='Reserve share').props.onChange({target:{value:'3700'}});
     tree=harness.render();assert.equal(findNode(tree,node=>node.type===AllocationPreview).props.reserveBps,3700);
-    for(const [label,mode] of [['One recipient','direct'],['Holder payouts','holders'],['Community escrow','social']]){
+    for(const [label,mode] of [['One recipient','direct'],['Holder sample payouts','holders'],['Community escrow','social']]){
       findNode(tree,node=>node.type==='button'&&normalized(node).includes(label)).props.onClick();tree=harness.render();
       assert.equal(findNode(tree,node=>node.type===AllocationPreview),null);
       assert.equal(props.draft.splitEnabled,false);assert.equal(props.draft.holdersEnabled,mode==='holders');assert.equal(props.draft.socialEnabled,mode==='social');

@@ -5,11 +5,14 @@ import {imageLink} from '../shared/project.mjs';
 import {publicClient} from './chain.mjs';
 import {createPons} from './pons.mjs';
 import {withDeadline} from './deadline.mjs';
+import {normalizeHolderBalances} from '../shared/distribution.mjs';
+import {createLaunchIndex} from './launch-index.mjs';
 const source='Pons v2 / Robinhood mainnet';
+const holderSource='Robinhood Blockscout token holders';
 const safeImage=value=>{try{return imageLink(value);}catch{return '';}};
 const swapEvent=parseAbiItem('event Swap(bytes32 indexed id,address indexed sender,int128 amount0,int128 amount1,uint160 sqrtPriceX96,uint128 liquidity,int24 tick,uint24 fee)');
-export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch(...args),now=()=>Date.now(),protocol=createPons({client,now}),deadlines={}}={}){
-  const limits={core:12000,holders:5500,trades:10000,feed:12000,block:3000,...deadlines};
+export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch(...args),now=()=>Date.now(),protocol=createPons({client,now}),deadlines={},launchIndex=createLaunchIndex(store,{client,now,syncTimeoutMs:8000})}={}){
+  const limits={core:12000,holders:5500,trades:10000,feed:16000,block:3000,...deadlines};
   let cachedFeed=null;const pending=new Map(),tradeCache=new Map(),holderCache=new Map(),times=new Map();
   function flight(key,milliseconds,work){
     if(pending.has(key))return pending.get(key);let active=true;
@@ -19,13 +22,35 @@ export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch
   async function timestamp(block){const key=String(block);if(!times.has(key)){const value=withDeadline(()=>client.getBlock({blockNumber:BigInt(block)}),limits.block).then(b=>new Date(Number(b.timestamp)*1000).toISOString()).catch(error=>{times.delete(key);throw error;});times.set(key,value);if(times.size>1000)times.delete(times.keys().next().value);}return times.get(key);}
   async function explorer(path){const response=await fetcher(`${NETWORK.explorer}/api/v2${path}`,{signal:AbortSignal.timeout(5000)});if(!response.ok)throw new Error('Holder data is temporarily unavailable.');return response.json();}
   async function recentLogs(parameters,range=20000n){const latest=await client.getBlockNumber(),from=latest>range?latest-range:0n,parts=[];for(let start=from;start<=latest;start+=5000n)parts.push(client.getLogs({...parameters,fromBlock:start,toBlock:start+4999n<latest?start+4999n:latest}));const results=await Promise.allSettled(parts);if(results.every(r=>r.status==='rejected'))throw new Error('Recent chain events are temporarily unavailable.');return{logs:results.flatMap(r=>r.status==='fulfilled'?r.value:[]).filter(r=>!r.removed),fromBlock:String(from),toBlock:String(latest),partial:results.some(r=>r.status==='rejected')};}
-  async function feed(){
-    if(cachedFeed&&now()-cachedFeed.fetchedAt<60000)return cachedFeed;
+  async function feed({refresh=false}={}){
+    if(cachedFeed&&launchIndex.snapshot().coverage?.invalidated)cachedFeed=null;
+    if(cachedFeed&&now()-cachedFeed.fetchedAt<(refresh?5000:60000))return cachedFeed;
     return flight('feed',limits.feed,async active=>{
-      await protocol.verify();active();const event=factoryAbi.find(e=>e.type==='event'&&e.name==='TokenLaunched'),page=await recentLogs({address:PONS.factory.address,event}),unique=new Map();active();
-      for(const log of page.logs.sort((a,b)=>Number(b.blockNumber-a.blockNumber)||Number(b.logIndex-a.logIndex)))if(!unique.has(log.args.token.toLowerCase()))unique.set(log.args.token.toLowerCase(),log);
-      const results=await Promise.allSettled([...unique.values()].slice(0,30).map(async log=>{const token=log.args.token,[name,symbol,createdAt,info]=await Promise.all([client.readContract({address:token,abi:erc20Abi,functionName:'name'}),client.readContract({address:token,abi:erc20Abi,functionName:'symbol'}),timestamp(log.blockNumber),withDeadline(()=>client.readContract({address:token,abi:tokenInfoAbi,functionName:'getTokenInfo'}),3000).catch(()=>null)]);return{id:token,tokenAddress:token,name,symbol,image:safeImage(info?.[1]),creator:log.args.deployer,curve:log.args.curve,pairToken:log.args.pairToken,createdAt,transactionHash:log.transactionHash,source};}));active();
-      cachedFeed={items:results.flatMap(r=>r.status==='fulfilled'?[r.value]:[]),checkedAt:new Date(now()).toISOString(),fetchedAt:now(),fromBlock:page.fromBlock,toBlock:page.toBlock,partial:page.partial||results.some(r=>r.status==='rejected'),scope:'Recent 20,000 blocks from the official pons v2 factory. This is not an all-time launch list.'};return cachedFeed;
+      let page;
+      try{await withDeadline(()=>protocol.verify(),5000);active();page=await launchIndex.sync({assertActive:active});}
+      catch{active();page={...launchIndex.snapshot(),stale:true,error:'Latest launch history could not be verified.'};}
+      active();const coverage={...page.coverage,...(page.stale?{status:'stale',partial:true}:{})},unique=new Map();
+      if((coverage.fromBlock==null||coverage.toBlock==null)&&!coverage.invalidated){cachedFeed=null;throw new Error('Launch history is temporarily unavailable. Try again shortly.');}
+      for(const log of [...page.logs].sort((a,b)=>Number(BigInt(b.blockNumber)-BigInt(a.blockNumber))||Number(b.logIndex)-Number(a.logIndex)))if(!unique.has(log.args.token.toLowerCase()))unique.set(log.args.token.toLowerCase(),log);
+      const metadataName='pons-launch-metadata-v1',metadata=store.read(metadataName).filter(item=>item.chainId===4663&&item.factory===PONS.factory.address.toLowerCase()),updates=[];
+      const items=await Promise.all([...unique.values()].slice(0,30).map(async log=>{
+        const token=log.args.token,key=`${log.transactionHash.toLowerCase()}:${log.logIndex}:${log.blockHash.toLowerCase()}`,saved=metadata.find(item=>item.key===key);
+        let fields=saved?.fields,metadataStale=false;
+        if(!fields||now()-saved.fetchedAt>=900000){
+          const results=await Promise.allSettled(['name','symbol','getTokenInfo'].map(functionName=>withDeadline(()=>client.readContract({address:token,abi:functionName==='getTokenInfo'?tokenInfoAbi:erc20Abi,functionName}),2000)));
+          active();const validText=result=>result.status==='fulfilled'&&typeof result.value==='string'&&!!result.value.trim()&&result.value.length<=256;
+          const text=(result,fallback)=>validText(result)?result.value:fallback;
+          const name=text(results[0],saved?.fields.name),symbol=text(results[1],saved?.fields.symbol),image=results[2].status==='fulfilled'?safeImage(results[2].value?.[1]):saved?.fields.image||'';
+          fields={name:name||'Token details unavailable',symbol:symbol||'—',image,metadataAvailable:!!name&&!!symbol};
+          metadataStale=!!saved&&(!validText(results[0])||!validText(results[1]));
+          // Failed lookups retain receipts and previously observed metadata, without extending their freshness.
+          if(fields.metadataAvailable&&!metadataStale)updates.push({key,chainId:4663,factory:PONS.factory.address.toLowerCase(),fields,fetchedAt:now()});
+        }
+        return{id:token,tokenAddress:token,...fields,metadataStale,creator:log.args.deployer,curve:log.args.curve,pairToken:log.args.pairToken,createdAt:log.createdAt,blockNumber:String(log.blockNumber),blockHash:log.blockHash,logIndex:log.logIndex,transactionHash:log.transactionHash,source};
+      }));active();
+      if(updates.length)await store.change(metadataName,records=>{active();for(const update of updates){const index=records.findIndex(item=>item.key===update.key);if(index<0)records.push(update);else records[index]=update;}records.sort((a,b)=>b.fetchedAt-a.fetchedAt);records.splice(200);});active();
+      const incompleteMetadata=items.some(item=>!item.metadataAvailable||item.metadataStale);
+      cachedFeed={items,checkedAt:page.checkedAt??coverage.verifiedAt??null,fetchedAt:now(),fromBlock:coverage.fromBlock,toBlock:coverage.toBlock,partial:!!coverage.partial||!!page.stale,stale:!!page.stale,coverage,metadataPartial:incompleteMetadata,scope:coverage.scope,notice:page.stale?'Showing saved launch history. The latest chain state could not be verified.':coverage.partial?'Some launch history is still missing. Only the covered blocks are shown.':''};return cachedFeed;
     });
   }
   async function details(input){
@@ -40,18 +65,24 @@ export function createMarket(store,{client=publicClient,fetcher=(...args)=>fetch
     });
   }
   async function holders(input){
-    if(!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');const address=getAddress(input.toLowerCase()),key=address.toLowerCase(),cached=holderCache.get(key);
+    if(typeof input!=='string'||!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');const address=getAddress(input.toLowerCase()),key=address.toLowerCase(),cached=holderCache.get(key);
     if(cached&&now()-cached.fetchedAt<(cached.holderDataAvailable?30000:5000))return cached;
     // Retain compatible already-observed snapshots; new core reads never wait for the explorer.
     const stored=store.read('market').find(item=>item.address===key&&item.data?.coreVersion===2&&item.data?.holderDataAvailable&&now()-item.fetchedAt<30000);
-    if(stored)return{holders:stored.data.holders||[],holdersCount:stored.data.holdersCount,holderDataAvailable:true,checkedAt:stored.data.checkedAt};
     try{return await flight('holders:'+key,limits.holders,async active=>{
+      if(stored){
+        const sample=normalizeHolderBalances(stored.data.holders),data=stored.data;
+        return{...sample,returned:Number.isSafeInteger(data.returned)&&data.returned>=sample.returned?data.returned:sample.returned,duplicateRows:Number.isSafeInteger(data.duplicateRows)&&data.duplicateRows>=0?data.duplicateRows:sample.duplicateRows,holdersCount:data.holdersCount??null,holderDataAvailable:true,source:data.holderSource||null,balanceUnit:'token-base-units',snapshotBlock:null,snapshotBlockHash:null,paginationComplete:typeof data.paginationComplete==='boolean'?data.paginationComplete:null,coverage:data.coverage==='partial'?'partial':'unknown',checkedAt:data.holdersCheckedAt??data.checkedAt??null,fetchedAt:stored.fetchedAt};
+      }
       const results=await Promise.allSettled([withDeadline(()=>explorer(`/tokens/${address}`),limits.holders-1),withDeadline(()=>explorer(`/tokens/${address}/holders`),limits.holders-1)]);active();const[info,list]=results;
-      const items=list.status==='fulfilled'&&Array.isArray(list.value.items)?list.value.items.map(item=>({address:item.address?.hash,balance:String(item.value)})).filter(item=>isAddress(item.address||'',{strict:false})):[];
-      const result={holders:items,holdersCount:info.status==='fulfilled'&&info.value.holders_count!=null?Number(info.value.holders_count):null,holderDataAvailable:list.status==='fulfilled',checkedAt:new Date(now()).toISOString(),fetchedAt:now()};holderCache.set(key,result);if(holderCache.size>200)holderCache.delete(holderCache.keys().next().value);return result;
-    });}catch{return{holders:[],holdersCount:null,holderDataAvailable:false,checkedAt:null};}
+      if(list.status!=='fulfilled'||!Array.isArray(list.value?.items))throw new Error('Holder balances are unavailable.');
+      const sample=normalizeHolderBalances(list.value.items.map(item=>({address:item?.address?.hash,balance:item?.value}))),next=list.value.next_page_params;
+      const paginationComplete=next===null?true:next&&typeof next==='object'&&!Array.isArray(next)&&Object.keys(next).length>0?false:null;
+      const count=info.status==='fulfilled'&&/^(0|[1-9]\d*)$/.test(String(info.value?.holders_count))?Number(info.value.holders_count):null;
+      const result={...sample,holdersCount:Number.isSafeInteger(count)?count:null,holderDataAvailable:true,source:holderSource,balanceUnit:'token-base-units',snapshotBlock:null,snapshotBlockHash:null,paginationComplete,coverage:paginationComplete===null?'unknown':'partial',checkedAt:new Date(now()).toISOString(),fetchedAt:now()};holderCache.set(key,result);if(holderCache.size>200)holderCache.delete(holderCache.keys().next().value);return result;
+    });}catch{return{holders:[],sampled:0,returned:0,duplicateRows:0,holdersCount:null,holderDataAvailable:false,source:holderSource,balanceUnit:'token-base-units',snapshotBlock:null,snapshotBlockHash:null,paginationComplete:null,coverage:'unknown',checkedAt:null};}
   }
-  async function observe(input){const[data,holderData]=await Promise.all([details(input),holders(input)]);return{...data,...holderData,holdersCheckedAt:holderData.checkedAt,checkedAt:data.checkedAt};}
+  async function observe(input){const[data,holderData]=await Promise.all([details(input),holders(input)]);return{...data,...holderData,source:data.source,holderSource:holderData.source,holdersCheckedAt:holderData.checkedAt,checkedAt:data.checkedAt};}
   async function trades(input){
     if(!isAddress(input,{strict:false}))throw new Error('Enter a valid token address.');const token=getAddress(input.toLowerCase()),key=token.toLowerCase(),cached=tradeCache.get(key);if(cached&&now()-cached.fetchedAt<(cached.available?30000:5000))return cached;
     try{return await flight('trades:'+key,limits.trades,async active=>{

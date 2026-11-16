@@ -2,6 +2,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync,existsSync,readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {createLaunchIndexRepository} from './launch-index-repository.mjs';
 
 function checkRevision(entry,revision=0){
   if(!Number.isSafeInteger(revision)||revision<0)throw new Error('A valid draft revision is required.');
@@ -18,6 +19,7 @@ export function createWorkspaceStore(directory){
   function change(name,fn){const db=connection();try{db.exec('BEGIN IMMEDIATE');const row=db.prepare('SELECT value FROM documents WHERE name=?').get(name),records=row?JSON.parse(row.value):[];const result=fn(records);if(result?.then)throw new Error('Store transactions must be synchronous.');db.prepare('INSERT INTO documents VALUES (?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value').run(name,JSON.stringify(records));db.exec('COMMIT');return Promise.resolve(result);}catch(error){try{db.exec('ROLLBACK');}catch{}return Promise.reject(error);}finally{db.close();}}
   return {
     read,change,
+    launchIndex:createLaunchIndexRepository(connection),
     transaction(names,fn){const db=connection();try{db.exec('BEGIN IMMEDIATE');const documents=Object.fromEntries(names.map(name=>{const row=db.prepare('SELECT value FROM documents WHERE name=?').get(name);return[name,row?JSON.parse(row.value):[]];}));const result=fn(documents);if(result?.then)throw new Error('Store transactions must be synchronous.');for(const name of names)db.prepare('INSERT INTO documents VALUES (?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value').run(name,JSON.stringify(documents[name]));db.exec('COMMIT');return Promise.resolve(result);}catch(error){try{db.exec('ROLLBACK');}catch{}return Promise.reject(error);}finally{db.close();}},
     projects:async()=>read('projects'),
     mutateProjects:fn=>change('projects',fn),

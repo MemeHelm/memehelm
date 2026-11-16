@@ -128,11 +128,27 @@
 .treasury-system .transaction-review p { max-width: 75ch; color: #c2cdd5; font-size: 12px; line-height: 1.75; overflow-wrap: anywhere; }
 .treasury-system .transaction-review a { color: #d8e3ea; }
 .treasury-system .payout-review-summary { gap: 0 24px; margin: 17px 0; padding-block: 8px; border-block: 1px solid #6f7d87; }
-.treasury-system .payout-review-summary>div { padding-block: 9px; }
+.treasury-system .payout-review-summary>div { display: block; padding-block: 9px; }
 .treasury-system .payout-review-summary dt { color: #b4c3ce; font-size: 11px; }
-.treasury-system .payout-review-summary dd { color: #edf1f4; font-size: 17px; text-align: left; }
+.treasury-system .payout-review-summary dd { display: block; margin: 4px 0 0; color: #edf1f4; font-size: 17px; text-align: start; }
 .treasury-system .payout-list-heading { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 0; margin: 22px 0 0; border: 0; border-radius: 0; background: none; }
 .treasury-system .payout-list-heading h3 { color: #edf1f4; font-size: 14px; line-height: 1.4; }
+.treasury-system .payout-coverage { margin-block: 24px; padding: 16px; border: 1px solid var(--treasury-line); border-radius: 8px; background: var(--treasury-field, #191f26); }
+.treasury-system .payout-coverage-title { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.treasury-system .payout-coverage-title h3 { margin: 0; color: var(--cold-white, #edf1f5); font: 600 18px/28px 'Space Grotesk', sans-serif; }
+.treasury-system .payout-coverage p { margin: 12px 0; max-width: 70ch; color: #c2cdd5; font-size: 14px; line-height: 20px; text-wrap: pretty; }
+.treasury-system .payout-evidence { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 16px 0; }
+.treasury-system .payout-evidence>div { display: block; min-width: 0; }
+.treasury-system .payout-evidence dt { color: #b4c3ce; font-size: 12px; line-height: 16px; }
+.treasury-system .payout-evidence dd { display: block; margin: 4px 0 0; color: #edf1f4; font-size: 14px; line-height: 20px; text-align: start; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.treasury-system .payout-calculation summary { width: fit-content; min-height: 44px; padding-block: 12px; color: #edf1f4; font-size: 14px; line-height: 20px; cursor: pointer; }
+.treasury-system .payout-calculation summary:focus-visible { outline: 2px solid var(--treasury-accent); outline-offset: 4px; }
+.treasury-system .payout-additional-funds { color: #edf1f4; }
+.treasury-system .payout-sample-consent { max-width: 70ch; font-size: 14px; line-height: 20px; }
+@container treasury (max-width: 420px) {
+  .treasury-system .payout-evidence { grid-template-columns: 1fr; }
+  .treasury-system .payout-coverage { padding: 12px; }
+}
 .treasury-system .payout-recipient-list { max-height: 320px; margin: 12px 0 18px; border-color: #6f7d87; }
 .treasury-system .payout-recipient { padding: 12px 5px; border-color: #52616d; }
 .treasury-system .payout-recipient .address-value { color: #d7e1e9; }

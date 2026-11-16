@@ -42,3 +42,12 @@ test('sell approvals are exact, reset an existing nonzero allowance, and precede
  const reset=decodeFunctionData({abi:erc20Abi,data:(await f.protocol.tradeStep(owner,quote.id,0)).data}),approve=decodeFunctionData({abi:erc20Abi,data:(await f.protocol.tradeStep(owner,quote.id,1)).data});assert.equal(reset.args[1],0n);assert.equal(approve.args[0],curve);assert.equal(approve.args[1],parseEther('100'));
  const trade=decodeFunctionData({abi:curveAbi,data:(await f.protocol.tradeStep(owner,quote.id,2)).data});assert.equal(trade.functionName,'sell');assert.ok(trade.args[1]>0n);
 });
+
+test('holder reviews reject a different owner or network before reading balances or preparing calldata',async()=>{
+ let reads=0;
+ const protocol=createPons({client:{getChainId:async()=>{reads++;throw Error('No chain read is permitted.');}}});
+ const project={id:'private-project',owner,chainId:4663,tokenAddress:token,vaultAddress:curve};
+ await assert.rejects(()=>protocol.prepareDistribution(other,project,{holderDataAvailable:true,holders:[{address:other,balance:'1'}]},{confirmSampleCoverage:true}),/another wallet/);
+ await assert.rejects(()=>protocol.prepareDistribution(owner,{...project,chainId:1},{holderDataAvailable:true,holders:[{address:other,balance:'1'}]}),/another network/);
+ assert.equal(reads,0);
+});

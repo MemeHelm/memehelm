@@ -1,5 +1,9 @@
 # Selected product plan
 
+2026-11-16 planning update: [MemeHelm product enhancement and production-readiness plan](MEMEOS_ALIGNMENT_PLAN.md) records the verified baseline, remaining gaps, pons compatibility boundaries, phased work and acceptance criteria. It replaces the externally supplied MEME OS refactor proposal as the planning reference; proposed enhancements are not completed features or authorization to deploy, publish or spend. The dated implementation history below is retained.
+
+Next implementation slice: persistent official pons launch history, bounded recovery, reorg withdrawal and truthful Discover coverage are implemented locally. See [phase B launch-index acceptance](PHASE_B_LAUNCH_INDEX_2026-11-17.md) for validation and limits; this does not complete creator trade history, holder snapshots or funding relationships.
+
 Updated 2026-11-12. User-approved target: **pons v2 on Robinhood mainnet 4663**, English-speaking creators, local completion before hosting. No testnet product, cross-chain issuance or autonomous market making. A user’s wallet signs every financial transaction.
 
 Implemented scope: creator-led token issuance, curve and Uniswap v4 trading, optional fixed ETH revenue split with escrow claiming, discovery and native-ETH market data, opt-in creator pages, AI writing/planning profiles and private history, observed watchlist alerts.

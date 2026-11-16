@@ -1,6 +1,30 @@
 import {getAddress,isAddress} from 'viem';
 export const MIN_HOLDERS_PAYOUT_WEI=10n**15n; // 0.001 ETH: below this, a payout costs more in gas than it delivers.
 const sameAddress=(a,b)=>a.toLowerCase()===b.toLowerCase();
+const uint256max=(1n<<256n)-1n;
+
+// Explorer rows describe balances, not additive transfers. Repeated rows must
+// never increase a wallet's balance; conflicting or malformed rows invalidate
+// the sample instead of silently changing its denominator.
+export function normalizeHolderBalances(entries){
+  if(!Array.isArray(entries))throw new Error('Holder balances could not be verified. Request a new sample.');
+  const unique=new Map();let duplicateRows=0;
+  for(const entry of entries){
+    if(!isAddress(String(entry?.address||''),{strict:false}))throw new Error('A holder address could not be verified. Request a new sample.');
+    const value=entry?.balance;
+    if(!(typeof value==='bigint'||typeof value==='string'&&/^(0|[1-9]\d*)$/.test(value))||String(value).length>78)throw new Error('A holder balance must be a non-negative integer in token base units. Request a new sample.');
+    const balance=BigInt(value);
+    if(balance<0n||balance>uint256max)throw new Error('A holder balance is outside the supported token base-unit range. Request a new sample.');
+    const address=getAddress(String(entry.address).toLowerCase());
+    if(unique.has(address)){
+      if(unique.get(address)!==balance)throw new Error('Conflicting balances were returned for the same holder. Request a new sample.');
+      duplicateRows++;continue;
+    }
+    unique.set(address,balance);
+  }
+  const holders=[...unique].filter(([,balance])=>balance>0n).map(([address,balance])=>({address,balance:String(balance)}));
+  return{holders,sampled:holders.length,returned:entries.length,duplicateRows};
+}
 
 /// Honest, bounded holder-payout math for the HoldersVault keeper flow.
 /// Shares are pro-rata within the balances returned by one explorer snapshot;
@@ -9,20 +33,13 @@ export function computeHoldersPayout({entries,amountWei,exclude=[],minPayoutWei=
   if(typeof amountWei!=='bigint'||amountWei<=0n)throw new Error('No ETH is available to distribute yet.');
   if(typeof minPayoutWei!=='bigint'||minPayoutWei<0n)throw new Error('Invalid minimum payout.');
   const excluded=new Set((Array.isArray(exclude)?exclude:[]).filter(isAddress).map(address=>getAddress(address.toLowerCase())));
-  const merged=new Map();
-  for(const entry of Array.isArray(entries)?entries:[]){
-    if(!isAddress(String(entry?.address||''),{strict:false}))continue;
-    const balance=BigInt(entry.balance||0n);
-    if(balance<=0n)continue;
-    const address=getAddress(String(entry.address).toLowerCase());
-    merged.set(address,(merged.get(address)||0n)+balance);
-  }
-  const wallets=[...merged].map(([address,balance])=>({address,balance})).filter(wallet=>!excluded.has(wallet.address));
+  const sample=normalizeHolderBalances(entries);
+  const wallets=sample.holders.map(({address,balance})=>({address,balance:BigInt(balance)})).filter(wallet=>!excluded.has(wallet.address));
   const dropped=[];
   if(!wallets.length)throw new Error('No eligible holder balances were returned for this snapshot.');
   // Calculate everyone's share before applying the transaction limit or minimum.
   // Unselected shares stay in the vault instead of being reassigned to other holders.
-  wallets.sort((a,b)=>a.balance>b.balance?-1:a.balance<b.balance?1:0);
+  wallets.sort((a,b)=>a.balance>b.balance?-1:a.balance<b.balance?1:a.address.toLowerCase()<b.address.toLowerCase()?-1:a.address.toLowerCase()>b.address.toLowerCase()?1:0);
   const covered=wallets.reduce((sum,wallet)=>sum+wallet.balance,0n);
   if(covered<=0n)throw new Error('No eligible holder balances were returned for this snapshot.');
   const payouts=wallets.map(wallet=>({address:wallet.address,amount:amountWei*wallet.balance/covered,remainder:amountWei*wallet.balance%covered}));
@@ -42,7 +59,7 @@ export function computeHoldersPayout({entries,amountWei,exclude=[],minPayoutWei=
     return !reason;
   }).map(({address,amount})=>({address,amount}));
   if(!selected.length)throw new Error('Every balance in this snapshot is below the minimum payout.');
-  return {payouts:selected,snapshotAmount:amountWei,coveredBalance:String(covered),eligible:wallets.length,sampled:(Array.isArray(entries)?entries:[]).length,included:selected.length,dropped,minPayoutWei:String(minPayoutWei)};
+  return {payouts:selected,snapshotAmount:amountWei,coveredBalance:String(covered),eligible:wallets.length,sampled:sample.sampled,returned:sample.returned,duplicateRows:sample.duplicateRows,included:selected.length,dropped,minPayoutWei:String(minPayoutWei)};
 }
 export function selectHoldersPayout(round,excludedRecipients=[]){
   if(!Array.isArray(excludedRecipients)||excludedRecipients.length>200)throw new Error('Choose up to 200 payout recipients to leave out.');
