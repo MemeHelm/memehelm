@@ -29,7 +29,7 @@ test('chat task replays the conversation after the factual context and keeps it 
     const seen=[];
     const result=await generateCopilot({project:{name:'Orbit Club',symbol:'ORBIT',status:'draft'},facts:{operatingContext:{memory:{story:''}}},task:'chat',messages:[{role:'user',content:'q1'},{role:'assistant',content:'a1'},{role:'user',content:'What changed?'}]},async(url,options)=>{
       seen.push(JSON.parse(options.body));
-      return new Response(JSON.stringify({choices:[{message:{content:'Observed facts only.'}}]}),{status:200});
+      return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({scope:'platform',reply:'Observed facts only.'})}}]}),{status:200});
     });
     assert.equal(result.content,'Observed facts only.');
     const request=seen[0];
@@ -52,7 +52,7 @@ test('the chat endpoint answers only for the project owner with server-owned his
       if(String(input).startsWith('https://model.example/')){
         calls++;const request=JSON.parse(options.body);
         if(calls===2)captured=request;
-        return new Response(JSON.stringify({choices:[{message:{content:calls===1?'Observed: no token linked yet.':'Observed: still no token linked.'}}]}),{status:200});
+        return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({scope:'platform',reply:calls===1?'Observed: no token linked yet.':'Observed: still no token linked.'})}}]}),{status:200});
       }
       return originalFetch(input,options);
     };

@@ -55,6 +55,22 @@ test('assistant plans retain a separate request identity through an interrupted 
   assert.doesNotMatch(JSON.stringify([...records]),/secret community|chat-a/);
 }));
 
+test('general chat reuses its request ID across timeout and reload without storing its private prompt',()=>fixture(async({client,load,records,seen,setMode})=>{
+  client.setApiWalletScope(walletA);const generalPath='/assistant/chat',input={content:prompt,chatId:'general-private'};
+  await assert.rejects(()=>client.api(generalPath,input,undefined,40),/took too long/);const id=seen.at(-1).payload.requestId;assert.match(id,/^[a-f0-9-]{36}$/i);assert.equal(records.size,1);assert.equal(input.requestId,undefined);
+  await assert.rejects(()=>client.api(generalPath,{chatId:'general-private',content:prompt},undefined,40),/took too long/);assert.equal(seen.at(-1).payload.requestId,id);assert.doesNotMatch(JSON.stringify([...records]),/Private launch strategy|secret community|general-private/);
+  const reloaded=await load();reloaded.setApiWalletScope(walletA);setMode('success');await reloaded.api(generalPath,input);assert.equal(seen.at(-1).payload.requestId,id);assert.equal(records.size,0);await reloaded.api(generalPath,input);assert.notEqual(seen.at(-1).payload.requestId,id);
+}));
+
+test('general request recovery stays isolated from project chat and another wallet',()=>fixture(async({client,records,seen,setMode})=>{
+  const generalPath='/assistant/chat',input={content:prompt};setMode('AI_REQUEST_INTERRUPTED');client.setApiWalletScope(walletA);
+  await assert.rejects(()=>client.api(generalPath,input),error=>error.code==='AI_REQUEST_INTERRUPTED');const generalId=seen.at(-1).payload.requestId;assert.ok(generalId);
+  await assert.rejects(()=>client.api(path,input));const projectId=seen.at(-1).payload.requestId;assert.notEqual(projectId,generalId);
+  client.setApiWalletScope(walletB);await assert.rejects(()=>client.api(generalPath,input));const otherWalletId=seen.at(-1).payload.requestId;assert.notEqual(otherWalletId,generalId);assert.equal(records.size,3);
+  client.setApiWalletScope(walletA);await client.resetAIRequest(generalPath,input);assert.equal(records.size,2);await assert.rejects(()=>client.api(generalPath,input));assert.notEqual(seen.at(-1).payload.requestId,generalId);
+  await assert.rejects(()=>client.api(path,input));assert.equal(seen.at(-1).payload.requestId,projectId);client.setApiWalletScope(walletB);await assert.rejects(()=>client.api(generalPath,input));assert.equal(seen.at(-1).payload.requestId,otherWalletId);
+}));
+
 test('a wallet change during digest cannot move a request or reset into the next wallet scope',()=>fixture(async({client,records,seen,setMode})=>{
   const digest=crypto.subtle.digest;let release;
   const hold=()=>{const gate=new Promise(resolve=>{release=resolve;});crypto.subtle.digest=async(...args)=>{await gate;return digest.apply(crypto.subtle,args);};};

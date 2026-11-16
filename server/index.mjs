@@ -23,7 +23,9 @@ import {imageLink,projectLink,publicProject} from '../shared/project.mjs';
 import {verifyImportedToken} from './import-token.mjs';
 import {createRequestJournal} from './request-journal.mjs';
 import {chatPage,chatListPage} from './chat-history.mjs';
-import {createAssistantActions,parseAssistantPlan} from './assistant-actions.mjs';
+import {createGeneralChat} from './general-chat.mjs';
+import {MATE_SCOPE_VERSION,currentMateResult} from './mate-scope.mjs';
+import {createAssistantActions,parseAssistantPlan,assistantTimeZone} from './assistant-actions.mjs';
 import {createTokenResearch} from './token-research.mjs';
 const root = fileURLToPath(new URL('../',import.meta.url));
 const dataDirectory = resolve(root, process.env.DATA_DIRECTORY || 'data/robinhood-mainnet-pons-v2');
@@ -43,6 +45,7 @@ function reserveAIRequest(owner){
   times.push(Date.now());aiRequests.set(owner,times);
 }
 async function withAI(owner,work){if(aiInFlight.has(owner))throw Object.assign(new Error('An AI request is already running for your wallet.'),{status:429});reserveAIRequest(owner);aiInFlight.add(owner);try{return await work();}finally{aiInFlight.delete(owner);}}
+const generalChat=createGeneralChat(workspace,{journal:aiJournal,generate:generateCopilot,withAI,withPreparation:withChatPreparation,isPreparing:owner=>chatPreparing.has(owner),isInFlight:owner=>aiInFlight.has(owner)});
 const community=createCommunity(workspace),social=createXSocial(workspace,{origin:auth.origin}),growth=createGrowth(workspace),calendar=createContentCalendar(workspace);
 const assistantActions=createAssistantActions(workspace);
 const operations=createOperations(workspace,{observe:project=>market.observe(project.tokenAddress),generate:generateCopilot,withAI,configured:aiConfigured,communityContext:project=>({community:community.context(project),xPosts:social.context(project),goals:growth.context(project),contentPlans:calendar.context(project),assistantActions:assistantActions.context(project)})});
@@ -226,18 +229,27 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
     if(req.method==='POST'&&assistantPlanPath){
       const project=await findProject(assistantPlanPath[1]),input=await body(req),content=typeof input.content==='string'?input.content.trim():'';
       if(!content||content.length>4000)throw new Error('Describe the action in 1 to 4,000 characters.');
+      const timezone=assistantTimeZone(input.timezone);
       if(typeof input.requestId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(input.requestId))throw new Error('A request identifier is required. Reload and try again.');
       const chatId=input.chatId??null;if(chatId!==null&&(typeof chatId!=='string'||!workspace.read('chats').some(chat=>chat.id===chatId&&chat.projectId===project.id&&chat.owner===owner)))throw Object.assign(new Error('Chat not found.'),{status:404});
-      const response=await aiJournal.execute({owner,scope:'assistant:'+project.id,requestId:input.requestId,payload:{projectId:project.id,chatId,content}},()=>withChatPreparation(owner,async()=>{
+      const response=await aiJournal.execute({owner,scope:'assistant:'+project.id,requestId:input.requestId,payload:{projectId:project.id,chatId,content,...(input.timezone===undefined?{}:{timezone})}},()=>withChatPreparation(owner,async()=>{
         const facts=await projectChatFacts(project);
-        const result=await operations.write(project,'assistant',()=>generateCopilot({project,task:'assistant',facts:{...facts,currentTime:new Date().toISOString(),timezone:'UTC',ownerRequest:content,availableActions:['calendar','event','distribution'],distributionEligibility:{available:facts.snapshot?.vault?.kind==='holders'&&facts.snapshot.vault.controller?.toLowerCase()===owner,note:'Payout review only. Amounts and recipients are prepared in Treasury from fresh observations and require the owner wallet signature.'}}}));
+        const currentTime=new Date();
+        const result=await operations.write(project,'assistant',()=>generateCopilot({project,task:'assistant',facts:{...facts,currentTime:currentTime.toISOString(),timezone,ownerRequest:content,availableActions:['calendar','event','distribution'],distributionEligibility:{available:facts.snapshot?.vault?.kind==='holders'&&facts.snapshot.vault.controller?.toLowerCase()===owner,note:'Payout review only. Amounts and recipients are prepared in Treasury from fresh observations and require the owner wallet signature.'}}}));
         const proposal=parseAssistantPlan(result.content);
         if(proposal.proposals.some(item=>item.kind==='distribution')&&!(facts.snapshot?.vault?.kind==='holders'&&facts.snapshot.vault.controller?.toLowerCase()===owner))throw Object.assign(new Error('A holder-payout review requires a verified holders vault controlled by your wallet. No action was saved.'),{status:503,code:'AI_RESPONSE_INVALID'});
-        return assistantActions.record(project,{...proposal,requestId:input.requestId,chatId});
+        return {mateScopeVersion:MATE_SCOPE_VERSION,...await assistantActions.record(project,{...proposal,requestId:input.requestId,chatId})};
       }));
+      const scopedResponse=currentMateResult(response);
       const current=new Map(assistantActions.get(project).items.map(item=>[item.id,item]));
-      return json(res,200,{...response,items:response.items.map(item=>current.get(item.id)).filter(Boolean)});
+      return json(res,200,{...scopedResponse,items:scopedResponse.items.map(item=>current.get(item.id)).filter(Boolean)});
     }
+    if(req.method==='POST'&&path==='/api/assistant/chat')return json(res,200,await generalChat.send(owner,await body(req,40000)));
+    if(req.method==='POST'&&path==='/api/assistant/chats/remove')return json(res,200,await generalChat.remove(owner,(await body(req)).chatId));
+    const generalChatExport=path.match(/^\/api\/assistant\/chats\/([a-f0-9-]+)\/export$/);
+    if(req.method==='GET'&&generalChatExport)return json(res,200,generalChat.export(owner,generalChatExport[1]));
+    const generalChatsPath=path.match(/^\/api\/assistant\/chats(?:\/([a-f0-9-]+))?$/);
+    if(req.method==='GET'&&generalChatsPath)return json(res,200,generalChatsPath[1]?generalChat.page(owner,generalChatsPath[1],{before:url.searchParams.get('before'),limit:url.searchParams.get('limit')}):generalChat.list(owner,{offset:url.searchParams.get('offset'),limit:url.searchParams.get('limit')}));
     const chatPath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/chat$/);
     if(req.method==='POST'&&chatPath){
       const project=await findProject(chatPath[1]),input=await body(req,40000),content=typeof input.content==='string'?input.content.trim():'';
@@ -256,9 +268,9 @@ export const server=createServer((req,res)=>context.run({owner:auth.session(req)
         });
         const coverage=facts.xray?{checkedAt:facts.xray.checkedAt,fromBlock:facts.xray.observedTrading?.coverage?.fromBlock??null,toBlock:facts.xray.observedTrading?.coverage?.toBlock??null,note:facts.xray.scope}:null;
         const page=chatPage(saved);
-        return {chatId:saved.id,reply:result.content,coverage,generatedAt:result.generatedAt,messages:page.messages,hasMore:page.hasMore,before:page.before,totalMessages:page.totalMessages};
+        return {mateScopeVersion:MATE_SCOPE_VERSION,chatId:saved.id,reply:result.content,coverage,generatedAt:result.generatedAt,messages:page.messages,hasMore:page.hasMore,before:page.before,totalMessages:page.totalMessages};
       }));
-      return json(res,200,response);
+      return json(res,200,currentMateResult(response));
     }
     const chatRemovePath=path.match(/^\/api\/projects\/([a-f0-9-]+)\/chats\/remove$/);
     if(req.method==='POST'&&chatRemovePath){

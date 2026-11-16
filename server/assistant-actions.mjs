@@ -6,6 +6,10 @@ import {projectLink} from '../shared/project.mjs';
 const fail=(message,status=400)=>Object.assign(new Error(message),{status});
 const iso=value=>new Date(value).toISOString();
 const object=value=>value&&typeof value==='object'&&!Array.isArray(value);
+export function assistantTimeZone(value){
+  if(value===undefined||value==='UTC')return 'UTC';
+  throw fail('All planning times use UTC. Refresh this page before starting a new request.');
+}
 function text(value,max,label){if(typeof value!=='string'||!value.trim()||value.length>max)throw fail(`${label} must be between 1 and ${max} characters.`);return value.trim();}
 function keys(value,allowed){if(!object(value)||Object.keys(value).some(key=>!allowed.includes(key)))throw fail('This action contains unsupported fields. Review a new proposal.');}
 function date(value,now,required=false){

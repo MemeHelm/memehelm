@@ -1,0 +1,20 @@
+.launch-system .allocation-preview { min-width: 0; border: 1px solid var(--launch-line); border-radius: 10px; background: var(--launch-sidebar); }
+.launch-system .allocation-preview>summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 44px; padding: 12px 40px 12px 16px; position: relative; cursor: pointer; list-style: none; border-radius: inherit; color: var(--launch-text); font: 500 14px/20px 'DM Sans', sans-serif; }
+.launch-system .allocation-preview>summary::-webkit-details-marker { display: none; }
+.launch-system .allocation-preview>summary::after { content: ''; position: absolute; top: 16px; right: 16px; width: 8px; height: 8px; border-right: 1px solid var(--launch-muted); border-bottom: 1px solid var(--launch-muted); transform: rotate(45deg); }
+.launch-system .allocation-preview[open]>summary::after { transform: translateY(4px) rotate(225deg); }
+.launch-system .allocation-preview>summary>span { color: var(--launch-muted); font: 400 12px/16px 'DM Sans', sans-serif; }
+.launch-system .allocation-preview>summary:hover { background: #ffffff08; }
+.launch-system .allocation-preview>summary:active { background: var(--launch-line); }
+.launch-system .allocation-preview-body { display: grid; gap: 16px; min-width: 0; padding: 4px 16px 16px; }
+.launch-system .allocation-preview-body>p { margin: 0; color: var(--launch-muted); font: 400 12px/16px 'DM Sans', sans-serif; text-wrap: pretty; }
+.launch-system .allocation-preview-body>.field { max-width: 24rem; }
+.launch-system .allocation-preview-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.launch-system .allocation-preview-results>div { display: block; min-width: 0; padding: 0; border: 0; }
+.launch-system .allocation-preview-results dt { display: flex; flex-direction: column; gap: 4px; color: var(--launch-muted); font: 400 12px/16px 'DM Sans', sans-serif; }
+.launch-system .allocation-preview-results dt>span { color: var(--launch-text); }
+.launch-system .allocation-preview-results dd { margin: 8px 0 0; max-width: none; text-align: left; color: var(--launch-text); font: 500 20px/28px 'Space Grotesk', sans-serif; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.launch-system .allocation-preview-results dd>span { display: block; margin-top: 4px; color: var(--launch-muted); font: 400 12px/16px 'DM Sans', sans-serif; }
+@container (max-width: 360px) {
+  .launch-system .allocation-preview-results { grid-template-columns: minmax(0, 1fr); }
+}

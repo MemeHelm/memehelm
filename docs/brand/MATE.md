@@ -1,5 +1,7 @@
 # MATE — the MemeHelm AI companion
 
+> Current update (2026-11-16): the entrance now lasts 5.5 seconds, reveals the desktop at 4.35 seconds and lands at 5.15 seconds on the welcome portrait near the top of the assistant panel. Closed panels use a visible MATE control; the lower-right floating companion is no longer mounted. The safety deadline is 5.8 seconds plus the 180ms exit. See the root `DESIGN.md` and `docs/SINGLE_WORKSPACE.md`. The earlier script below records the previous timing and companion treatment.
+
 ## Name and role
 
 **MATE**, pronounced “mayt”, comes from *first mate*: the creator's capable partner at the helm. In conversational UI, use **Mate**, **Ask Mate** and **Chat with Mate**.

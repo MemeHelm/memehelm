@@ -1,4 +1,5 @@
 import {useEffect,useState} from 'react';
+import {utcDateTime} from './time';
 import {completeTransaction,pendingTransactions,resumeTransaction} from './wallet';
 import type {StoredTransaction} from './wallet';
 import {Arrow} from './Brand';
@@ -16,7 +17,7 @@ export function TransactionRecovery({wallet,resolved}:{wallet:string;resolved:(r
   return <aside className={`transaction-recovery ${open?'is-open':''}`} aria-label="Transaction recovery">
     <button className="transaction-recovery-toggle" aria-expanded={open} aria-controls="transaction-recovery-list" onClick={()=>setOpen(!open)}><span>{records.length} transaction{records.length===1?'':'s'} to check</span><span>{open?'Hide':'Review'} <Arrow/></span></button>
     {open&&<div id="transaction-recovery-list" className="transaction-recovery-list"><p>Check an earlier request before sending it again. Status checks do not request a wallet signature.</p>{error&&<p className="notice error" role="alert">{error}</p>}{records.map(record=><section key={record.id}>
-      <strong>{record.intent.label}</strong><small>{new Date(record.submittedAt).toLocaleString('en-US')} · {({wallet:'Wallet request',submitted:'Submitted',confirmed:'Confirmed — finish updating workspace',reverted:'Reverted',replaced:'Replaced or cancelled'})[record.status]}</small>
+      <strong>{record.intent.label}</strong><small>{utcDateTime(record.submittedAt)} · {({wallet:'Wallet request',submitted:'Submitted',confirmed:'Confirmed — finish updating workspace',reverted:'Reverted',replaced:'Replaced or cancelled'})[record.status]}</small>
       {record.hash?<a className="address-value" href={`https://robinhoodchain.blockscout.com/tx/${record.hash}`} target="_blank" rel="noreferrer">{record.hash} <Arrow diagonal/></a>:<label>Transaction hash from your wallet<input aria-label={`Transaction hash for ${record.intent.label}`} value={hashes[record.id]||''} onChange={event=>setHashes({...hashes,[record.id]:event.target.value})} placeholder="0x…"/></label>}
       {record.replacementHash&&<a href={`https://robinhoodchain.blockscout.com/tx/${record.replacementHash}`} target="_blank" rel="noreferrer">View replacement <Arrow diagonal/></a>}
       <button className="button secondary" disabled={!!busy||(!record.hash&&!hashes[record.id])||record.status==='reverted'||record.status==='replaced'} onClick={()=>inspect(record)}>{busy===record.id?'Checking…':record.status==='confirmed'?'Finish workspace update':'Check transaction'} <Arrow/></button>

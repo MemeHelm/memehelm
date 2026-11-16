@@ -1,0 +1,47 @@
+.project-navigation { flex:none; min-width:0; background:#191f26; border-bottom:1px solid #38424d; }
+.project-navigation-context { display:flex; align-items:center; gap:12px; min-width:0; padding:12px 16px; }
+.project-navigation button { font:500 14px/20px 'DM Sans',sans-serif; cursor:pointer; }
+.project-navigation .project-back { display:inline-flex; align-items:center; gap:4px; flex:none; min-height:44px; padding:8px; color:#d2dbe3; border:1px solid transparent; border-radius:6px; background:transparent; }
+.project-back svg { width:16px; height:16px; }
+.project-navigation-selector { min-width:0; max-width:400px; flex:1; margin:0; padding:0; border:0; }
+.project-navigation-selector .project-picker { min-width:0; width:100%; }
+.project-navigation-selector select { width:100%; min-width:0; max-width:100%; text-overflow:ellipsis; }
+.project-navigation-context .project-select > span { display:none; }
+.project-navigation-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font:500 14px/20px 'DM Sans',sans-serif; }
+.project-navigation-private { margin-left:auto; white-space:nowrap; color:#a6b0bb; font:400 12px/16px 'DM Sans',sans-serif; }
+.project-primary-navigation,.project-secondary-navigation { display:flex; align-items:center; gap:4px; min-width:0; width:100%; padding:4px 16px; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin; }
+.project-primary-navigation { background:#101318; }
+.project-navigation nav > button { flex:none; min-height:44px; padding:8px 12px; border:1px solid transparent; border-radius:6px; white-space:nowrap; color:#a6b0bb; background:transparent; transition:background-color 200ms cubic-bezier(.22,1,.36,1),color 200ms cubic-bezier(.22,1,.36,1); }
+.project-navigation nav > button:hover,.project-navigation .project-back:hover { color:#edf1f5; background:#1e252d; }
+.project-navigation .project-primary-navigation > button[aria-current=page] { color:#d7ff00; background:#171e00; border-color:#38424d; }
+.project-navigation .project-secondary-navigation > button[aria-current=page] { color:#edf1f5; background:#38424d; }
+.project-navigation button:focus-visible { outline:2px solid #d7ff00; outline-offset:-2px; }
+.project-navigation button:active { transform:translateY(1px); }
+.project-navigation-selector:disabled { opacity:.65; }
+.project-assets-heading,.project-publication-heading { margin:0 0 24px; }
+.project-assets-heading h2,.project-publication-heading h2 { margin:0 0 8px; }
+.project-assets-heading p,.project-publication-heading p { color:#a6b0bb; margin:0; max-width:65ch; }
+.project-ai-setup { display:grid; gap:24px; }
+.project-ai-setup[hidden] { display:none !important; }
+.project-ai-setup .assistant-profile { margin:0; }
+.project-ai-setup .assistant-profile fieldset { border:0; margin:0; padding:0; min-width:0; }
+.desktop-shell.system-shell.single-workspace .content.app-copilot > .copilot-tool-workspace { flex:1; height:auto; min-height:0; }
+.single-workspace .copilot-tool-view .content-workspace > .growth-heading { align-items:flex-start; }
+@media(min-width:1100px) and (pointer:fine) {
+ .project-navigation-context { padding-block:8px; }
+ .project-navigation-context select { min-height:38px; }
+ .project-navigation nav > button,.project-navigation .project-back { min-height:36px; }
+ .project-primary-navigation,.project-secondary-navigation { padding-block:2px; }
+}
+@media(max-width:720px) {
+ .project-navigation-context { gap:8px; padding:8px; }
+ .project-navigation-private { display:none; }
+ .project-primary-navigation,.project-secondary-navigation { padding:4px 8px; }
+ .project-navigation nav > button { padding-inline:12px; }
+ .project-navigation-selector { max-width:none; }
+ .project-navigation .project-primary-navigation { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:0; padding-inline:4px; overflow:visible; }
+ .project-navigation .project-primary-navigation > button { min-width:0; padding-inline:2px; font-size:12px; }
+}
+.studio-upload-row { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; min-width:0; }
+.studio-upload-row > span { min-width:0; overflow-wrap:anywhere; color:#a6b0bb; font-size:12px; }
+@media(prefers-reduced-motion:reduce) { .project-navigation button { transition:none; } }

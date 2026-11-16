@@ -4,10 +4,10 @@ import {useWorkspaceData} from './useWorkspaceData';
 import {DraftText} from './DraftText';
 import type {Project} from './types';
 import type {Goal,GrowthState,Contribution} from './growth-types';
+import {utcDateTime,utcInput,utcFromInput} from './time';
 import './growth.css';
 
-const date=(value:string)=>new Date(value).toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});
-const localDate=(value:string|null)=>value?new Date(Date.parse(value)-new Date(value).getTimezoneOffset()*60000).toISOString().slice(0,16):'';
+const date=(value:string)=>utcDateTime(value,{dateStyle:'medium',timeStyle:'short'});
 const blank={title:'',description:'',target:10,deadline:''};
 export function GrowthWorkspace({project,onBlocked}:{project:Project;onBlocked:(value:boolean)=>void}){
   const resource=useWorkspaceData<GrowthState>(`/projects/${project.id}/growth`);
@@ -17,20 +17,21 @@ export function GrowthWorkspace({project,onBlocked}:{project:Project;onBlocked:(
   useEffect(()=>{onBlocked(busy||dirty);return()=>onBlocked(false);},[busy,dirty,onBlocked]);
   useEffect(()=>{setConfirm(false);},[selected,goal?.revision]);
   function choose(item:Goal){setSelected(item.id);setConfirm(false);requestAnimationFrame(()=>detail.current?.focus());}
-  function edit(item?:Goal){setEditing(item?'edit':'new');setForm(item?{...item.details,deadline:localDate(item.details.deadline)}:blank);}
+  function edit(item?:Goal){setEditing(item?'edit':'new');setForm(item?{...item.details,deadline:utcInput(item.details.deadline)}:blank);}
   async function recover(){if(await reload()){setEditing(null);setFinishing(false);setReview(null);setConfirm(false);}}
   if(loading&&!data)return <p className="workspace-loading" role="status">Opening community goals…</p>;
   return <div className="growth-workspace">
-    <header className="growth-heading"><div><h2>Build something together.</h2><p>Give your community a clear contribution to make. Review the work, then share the result.</p></div><button className="button primary" disabled={busy||dirty||!data} onClick={()=>edit()}>Create a goal</button></header>
+    <header className="growth-heading"><div><h2>Community goals</h2><p>Set a contribution, review the work and share the result.</p></div><button className="button primary" disabled={busy||dirty||!data} onClick={()=>edit()}>Create a goal</button></header>
+    {data&&<div className="growth-summary"><span><strong>{data.goals.length}</strong> goals</span><span><strong>{data.goals.reduce((count,item)=>count+item.pending,0)}</strong> contributions to review</span><span>Points recognize contributions. No monetary rewards.</span></div>}
     {error&&<div className="notice error" role="alert">{error}{conflict&&<div className="recovery-block"><label className="field"><span>Your unsaved work — copy before reloading</span><textarea readOnly value={editing?JSON.stringify(form,null,2):finishing?recap:reviewNote}/></label><button className="button secondary" disabled={busy} onClick={recover}>Discard edits & reload saved goals</button></div>}{!data&&<button className="button secondary" onClick={reload}>Try again</button>}</div>}
     {notice&&<div className="notice success" role="status">{notice}</div>}
-    {editing?<form className="growth-editor" onSubmit={async event=>{event.preventDefault();const input={action:'edit',revision:goal?.revision,details:{...form,deadline:form.deadline?new Date(form.deadline).toISOString():null}};if(await save('/goals'+(editing==='edit'?'/'+goal?.id:''),input,'Goal saved privately. Review it before sharing.'))setEditing(null);}}>
+    {editing?<form className="growth-editor" onSubmit={async event=>{event.preventDefault();const input={action:'edit',revision:goal?.revision,details:{...form,deadline:utcFromInput(form.deadline)}};if(await save('/goals'+(editing==='edit'?'/'+goal?.id:''),input,'Goal saved privately. Review it before sharing.'))setEditing(null);}}>
       <h3>{editing==='new'?'New community goal':'Edit goal draft'}</h3><fieldset disabled={busy||conflict}>
-        <label className="field"><span>Goal title</span><input autoFocus required maxLength={100} value={form.title} onChange={event=>setForm({...form,title:event.target.value})} placeholder="Collect this week’s community demos"/></label>
+        <div className="community-editor-group"><h4>Contribution brief</h4><label className="field"><span>Goal title</span><input autoFocus required maxLength={100} value={form.title} onChange={event=>setForm({...form,title:event.target.value})} placeholder="Collect this week’s community demos"/></label>
         <label className="field"><span>What should people contribute?</span><textarea required rows={5} maxLength={3000} value={form.description} onChange={event=>setForm({...form,description:event.target.value})} placeholder="Explain the task, useful evidence and how you will review it."/></label>
-        <div className="growth-form-pair"><label className="field"><span>Approved contribution target</span><input type="number" min={1} max={500} required value={form.target} onChange={event=>setForm({...form,target:Number(event.target.value)})}/></label><label className="field"><span>Submissions close (optional)</span><input type="datetime-local" value={form.deadline} onChange={event=>setForm({...form,deadline:event.target.value})}/></label></div>
-        <p className="data-note">Each approved contribution earns one community point. Points have no monetary value. Instructions lock after the first submission.</p>
-        <div className="button-row"><button className="button primary">{busy?'Saving…':'Save private goal'}</button><button type="button" className="button secondary" onClick={()=>setEditing(null)}>Cancel</button></div>
+        </div><div className="community-editor-group"><h4>Target & deadline</h4><div className="growth-form-pair"><label className="field"><span>Approved contribution target</span><input type="number" min={1} max={500} required value={form.target} onChange={event=>setForm({...form,target:Number(event.target.value)})}/></label><label className="field"><span>Submissions close (UTC, optional)</span><input type="datetime-local" value={form.deadline} onChange={event=>setForm({...form,deadline:event.target.value})}/></label></div>
+        <p className="data-note">Each approved contribution earns one community point. Points have no monetary value. Instructions lock after the first submission.</p></div>
+        <div className="button-row community-editor-actions"><button className="button primary">{busy?'Saving…':'Save private goal'}</button><button type="button" className="button secondary" onClick={()=>setEditing(null)}>Cancel</button></div>
       </fieldset>
     </form>:data?.goals.length?<div className="growth-columns"><section className="growth-list" aria-label="Community goals">{data.goals.map(item=><button key={item.id} disabled={busy||dirty} aria-pressed={item.id===selected} onClick={()=>choose(item)}><span className="growth-meta">{item.status==='completed'?'Completed':item.published?'Public goal':'Private draft'}{item.pending>0?` · ${item.pending} to review`:''}</span><strong>{item.details.title}</strong><span>{item.accepted} / {item.published?.target||item.details.target} approved contributions</span></button>)}</section>
       <section className="growth-detail" ref={detail} tabIndex={-1} aria-label="Selected community goal">{goal?<>

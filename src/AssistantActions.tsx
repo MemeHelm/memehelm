@@ -2,18 +2,17 @@ import {useEffect,useRef,useState} from 'react';
 import {api,ApiError,resetAIRequest} from './api';
 import {AIRequestRecovery} from './AIRequestRecovery';
 import {DraftText} from './DraftText';
+import {utcDateTime,utcInput,utcFromInput} from './time';
 import './assistant-actions.css';
 
 type CalendarItem={title:string;content:string;channel:'x'|'discord'|'telegram'|'project';scheduledAt:string|null};
 type EventPayload={title:string;description:string;startsAt:string|null;endsAt:string|null;capacity:number|null;url?:string};
 export type AssistantAction={id:string;projectId:string;chatId?:string|null;kind:'calendar'|'event'|'distribution';title:string;rationale:string;status:'proposed'|'applied'|'dismissed';revision:number;payload:{items?:CalendarItem[]}&Partial<EventPayload>;createdAt:string;appliedAt?:string;result?:{kind:string;id?:string;message?:string}};
-type PlanRequest={chatId?:string;content:string};
+type PlanRequest={chatId?:string;content:string;timezone:string};
 const channels={x:'X',discord:'Discord',telegram:'Telegram',project:'Project page'};
 const examples=['Plan three X updates for next week.','Draft a community call for Friday.','Help me review a holder payout.'];
 const clone=<T,>(value:T):T=>JSON.parse(JSON.stringify(value));
-const timestamp=(value:string|null|undefined)=>value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short',timeZoneName:undefined}):'Choose a time before creating this draft';
-const localDate=(value:string|null|undefined)=>{if(!value||!Number.isFinite(Date.parse(value)))return '';const date=new Date(value);return new Date(date.getTime()-date.getTimezoneOffset()*60000).toISOString().slice(0,16);};
-const fromLocal=(value:string)=>value&&Number.isFinite(Date.parse(value))?new Date(value).toISOString():null;
+const timestamp=(value:string|null|undefined)=>value&&Number.isFinite(Date.parse(value))?utcDateTime(value,{dateStyle:'medium',timeStyle:'short'}):'Choose a time before creating this draft';
 const errorMessage=(reason:unknown)=>reason instanceof Error?reason.message:'This action could not be completed. Try again.';
 
 /** Preview validation mirrors the concrete destinations; the server revalidates every revision. */
@@ -50,8 +49,8 @@ function ActionEditor({draft,setDraft,disabled}:{draft:AssistantAction;setDraft:
   const setPayload=(patch:Partial<AssistantAction['payload']>)=>setDraft({...draft,payload:{...draft.payload,...patch}});
   const itemChange=(index:number,patch:Partial<CalendarItem>)=>setPayload({items:draft.payload.items?.map((item,i)=>i===index?{...item,...patch}:item)});
   return <div className="assistant-action-editor"><label>Proposal title<input value={draft.title} maxLength={120} disabled={disabled} onChange={event=>setDraft({...draft,title:event.target.value})}/></label>
-    {draft.kind==='calendar'&&draft.payload.items?.map((item,index)=><fieldset key={index} disabled={disabled}><legend>Draft {index+1}</legend><label>Title<input value={item.title} maxLength={120} onChange={event=>itemChange(index,{title:event.target.value})}/></label><label>Content<textarea rows={4} value={item.content} maxLength={8000} onChange={event=>itemChange(index,{content:event.target.value})}/></label><div className="assistant-field-pair"><label>Channel<select value={item.channel} onChange={event=>itemChange(index,{channel:event.target.value as CalendarItem['channel']})}>{Object.entries(channels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><label>Scheduled time<input type="datetime-local" value={localDate(item.scheduledAt)} onChange={event=>itemChange(index,{scheduledAt:fromLocal(event.target.value)})}/></label></div></fieldset>)}
-    {draft.kind==='event'&&<fieldset disabled={disabled}><legend>Event details</legend><label>Event title<input value={draft.payload.title||''} maxLength={120} onChange={event=>setPayload({title:event.target.value})}/></label><label>Description<textarea rows={4} value={draft.payload.description||''} maxLength={4000} onChange={event=>setPayload({description:event.target.value})}/></label><div className="assistant-field-pair"><label>Starts<input type="datetime-local" value={localDate(draft.payload.startsAt)} onChange={event=>setPayload({startsAt:fromLocal(event.target.value)})}/></label><label>Ends<input type="datetime-local" value={localDate(draft.payload.endsAt)} onChange={event=>setPayload({endsAt:fromLocal(event.target.value)})}/></label></div><label>Capacity · leave empty for open registration<input type="number" min={1} max={500} step={1} value={draft.payload.capacity??''} onChange={event=>setPayload({capacity:event.target.value===''?null:Number(event.target.value)})}/></label><label>Event link · optional<input type="url" value={draft.payload.url||''} maxLength={500} onChange={event=>setPayload({url:event.target.value})}/></label></fieldset>}
+    {draft.kind==='calendar'&&draft.payload.items?.map((item,index)=><fieldset key={index} disabled={disabled}><legend>Draft {index+1}</legend><label>Title<input value={item.title} maxLength={120} onChange={event=>itemChange(index,{title:event.target.value})}/></label><label>Content<textarea rows={4} value={item.content} maxLength={8000} onChange={event=>itemChange(index,{content:event.target.value})}/></label><div className="assistant-field-pair"><label>Channel<select value={item.channel} onChange={event=>itemChange(index,{channel:event.target.value as CalendarItem['channel']})}>{Object.entries(channels).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><label>Scheduled time · UTC<input type="datetime-local" value={utcInput(item.scheduledAt)} onChange={event=>itemChange(index,{scheduledAt:utcFromInput(event.target.value)})}/></label></div></fieldset>)}
+    {draft.kind==='event'&&<fieldset disabled={disabled}><legend>Event details</legend><label>Event title<input value={draft.payload.title||''} maxLength={120} onChange={event=>setPayload({title:event.target.value})}/></label><label>Description<textarea rows={4} value={draft.payload.description||''} maxLength={4000} onChange={event=>setPayload({description:event.target.value})}/></label><div className="assistant-field-pair"><label>Starts · UTC<input type="datetime-local" value={utcInput(draft.payload.startsAt)} onChange={event=>setPayload({startsAt:utcFromInput(event.target.value)})}/></label><label>Ends · UTC<input type="datetime-local" value={utcInput(draft.payload.endsAt)} onChange={event=>setPayload({endsAt:utcFromInput(event.target.value)})}/></label></div><label>Capacity · leave empty for open registration<input type="number" min={1} max={500} step={1} value={draft.payload.capacity??''} onChange={event=>setPayload({capacity:event.target.value===''?null:Number(event.target.value)})}/></label><label>Event link · optional<input type="url" value={draft.payload.url||''} maxLength={500} onChange={event=>setPayload({url:event.target.value})}/></label></fieldset>}
   </div>;
 }
 
@@ -60,7 +59,7 @@ export function AssistantActions({projectId,chatId,available,onBlocked}:{project
   const identity=useRef(projectId);identity.current=projectId;
   const alive=useRef(true),requesting=useRef(false),mutation=useRef(false);
   const base=`/projects/${projectId}/assistant`;
-  const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'your local time zone';
+  const zone='UTC';
   useEffect(()=>{onBlocked?.(planning||!!input.trim()||!!draft||!!active);return()=>onBlocked?.(false);},[planning,input,draft,active,onBlocked]);
   useEffect(()=>{alive.current=true;const controller=new AbortController(),id=projectId;setItems([]);setLoading(true);setLoadError('');setInput('');setReply('');setDraft(null);setError('');setFailed(null);setConfirmed({});setNotice('');api<{items:AssistantAction[]}>(`/projects/${id}/assistant/actions`,undefined,controller.signal).then(result=>{if(!controller.signal.aborted&&identity.current===id)merge(result.items);}).catch(reason=>{if(!controller.signal.aborted&&identity.current===id)setLoadError(errorMessage(reason));}).finally(()=>{if(!controller.signal.aborted&&identity.current===id)setLoading(false);});return()=>{alive.current=false;controller.abort();};},[projectId]);
   const current=(id:string)=>alive.current&&identity.current===id;
@@ -68,7 +67,7 @@ export function AssistantActions({projectId,chatId,available,onBlocked}:{project
   async function refresh(){const id=projectId;setLoading(true);setLoadError('');try{const result=await api<{items:AssistantAction[]}>(`${base}/actions`);if(current(id)){merge(result.items);setActionError('');}}catch(reason){if(current(id))setLoadError(errorMessage(reason));}finally{if(current(id))setLoading(false);}}
   async function plan(content:string,exact?:PlanRequest){
     if(requesting.current||planning||!available||!content.trim()||draft||active)return;
-    requesting.current=true;const id=projectId,body=exact||{chatId:chatId||undefined,content:content.trim().slice(0,4000)};
+    requesting.current=true;const id=projectId,body=exact||{chatId:chatId||undefined,content:content.trim().slice(0,4000),timezone:zone};
     setPlanning(true);setError('');setNotice('');setRecoveryCode('');
     try{const result=await api<{reply:string;items:AssistantAction[]}>(`${base}/plan`,body);if(!current(id))return;merge(result.items);setReply(result.reply);setInput('');setFailed(null);}
     catch(reason){if(current(id)){setInput(body.content);setFailed(body);setError(errorMessage(reason));setRecoveryCode(reason instanceof ApiError?reason.code||'':'');}}

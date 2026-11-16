@@ -93,6 +93,13 @@ export function createGrowth(store,{now=()=>Date.now()}={}){
       const note=text(input.note,1000,'your review note');item.status=input.action==='accept'?'accepted':'declined';item.reviewNote=note;item.reviewedAt=stamp(now());item.revision++;
     });return get(project);
   }
-  function context(project){return{goals:get(project).goals.map(goal=>({title:goal.details.title,description:goal.details.description,status:goal.status,target:goal.details.target,approvedByCreator:goal.accepted,pending:goal.pending,deadline:goal.details.deadline,recap:goal.recap||null})).slice(0,15),pointsAreNonFinancial:true,approvalIsCreatorJudgment:true};}
+  function context(project){
+    const goals=get(project).goals,changedAt=goal=>Math.max(0,...[goal.completedAt,goal.updatedAt,goal.createdAt].map(Date.parse).filter(Number.isFinite)),recent=(a,b)=>changedAt(b)-changedAt(a);
+    const closed=goals.filter(goal=>goal.status!=='open').sort(recent),open=goals.filter(goal=>goal.status==='open').sort(recent).slice(0,15-Math.min(5,closed.length));
+    return{goals:[...open,...closed.slice(0,15-open.length)].map(goal=>{
+    const published=goal.published,details=published||goal.details,hasUnpublishedEdits=!!published&&JSON.stringify(published)!==JSON.stringify(goal.details);
+    return{title:details.title,description:details.description,status:goal.status,target:details.target,approvedByCreator:goal.accepted,pending:goal.pending,deadline:details.deadline,recap:goal.recap||null,
+      published:!!published,detailsSource:published?'published contribution instructions snapshot':'private goal draft',hasUnpublishedEdits,...(hasUnpublishedEdits?{privateDraft:{...goal.details}}:{})};
+  }),pointsAreNonFinancial:true,approvalIsCreatorJudgment:true};}
   return {get,change,submit,review,publicView,context};
 }

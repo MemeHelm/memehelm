@@ -68,3 +68,16 @@ test('approved-action navigation respects unsaved work and updates its project b
 test('a result event cannot open a project tool when no private project is selected',async t=>{
   environment(t);const {component,Entry,Calendar,Community}=copilot({project:undefined,selector:null,available:true,createProject(){},openProjects(){}});let tree=await cycle(component,1);openResult({projectId:project.id,kind:'calendar'});openResult({projectId:project.id,kind:'event'});tree=component.render();assert.ok(findNode(tree,node=>node.type===Entry));assert.equal(findNode(tree,node=>node.type===Calendar||node.type===Community),null);component.unmount();
 });
+
+test('OS app shortcuts enter the requested Copilot view and preserve unsaved work',async t=>{
+  environment(t);const changes=[];window.addEventListener('memehelm-copilot-view',event=>changes.push(event.detail.view));
+  const {component,Chat,Community,Calendar}=copilot({project,selector:null,available:true,createProject(){},openProjects(){}});
+  await cycle(component,1);assert.equal(changes.at(-1),'chat');
+  const open=view=>window.dispatchEvent(new CustomEvent('memehelm-open-copilot-view',{detail:{view}}));
+  open('not-a-view');assert.ok(findNode(component.render(),node=>node.type===Chat));
+  open('community');let tree=component.render();component.effects();assert.ok(findNode(tree,node=>node.type===Community));assert.equal(changes.at(-1),'community');
+  findNode(tree,node=>node.type===Community).props.onBlocked(true);component.render();component.effects();open('content');tree=component.render();assert.ok(findNode(tree,node=>node.type===Community));
+  findNode(tree,node=>node.type===Community).props.onBlocked(false);component.render();component.effects();open('content');tree=component.render();component.effects();assert.ok(findNode(tree,node=>node.type===Calendar));assert.equal(changes.at(-1),'content');
+  findNode(tree,node=>node.type==='button'&&textOf(node)==='Chat').props.onClick();tree=component.render();component.effects();assert.ok(findNode(tree,node=>node.type===Chat));assert.equal(changes.at(-1),'chat');
+  component.unmount();const count=changes.length;open('community');assert.equal(changes.length,count);
+});

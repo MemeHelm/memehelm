@@ -16,25 +16,26 @@ const examples=[
 export function GuestWorkspace({page,connect,navigate}:{page:Page;connect:()=>Promise<void>;navigate:(page:Page)=>void}){
   const [example,setExample]=useState(0);
   const copilot=page==='copilot',treasury=page==='treasury';
-  if(!copilot&&!treasury)return <div className="guest-workspace guest-projects">
+  if(!copilot&&!treasury)return <div className="guest-workspace guest-projects guest-system">
     <header className="guest-page-heading"><div><h1>My projects</h1><p>Your coins, drafts and community pages.</p></div><button className="button secondary" onClick={()=>navigate('launch')}>Launch a coin <Arrow/></button></header>
-    <section className="project-locked" aria-labelledby="projects-signin-title">
+    <div className="guest-projects-layout"><section className="project-locked" aria-labelledby="projects-signin-title">
       <div className="project-shelf-label"><DesktopIcon name="projects" size={18}/><span>Your workspace</span><span className="workspace-lock"><LockIcon/>Wallet sign-in</span></div>
       <div className="project-locked-content"><span className="project-empty-symbol"><DesktopIcon name="projects" size={38}/><LockIcon/></span><h2 id="projects-signin-title">Your projects live here.</h2><p>Sign in to see your coins and pick up your drafts.</p><button className="button primary" onClick={connect}>Sign in with wallet <Arrow/></button><small>Your projects are linked to your wallet.</small></div>
       <footer className="project-shelf-footer"><span>Drafts</span><span>Launched coins</span><span>Community pages</span></footer>
-    </section>
+    </section><section className="guest-workflow"><span className="application-kicker">ONE HOME FOR YOUR COINS</span><h2>From first draft to your next chapter.</h2><ol>{[['Keep the idea','Save your coin’s name, story and launch settings.'],['Run the project','Work with MATE, plan content and manage community events.'],['Follow the revenue','Review creator fees and approve each payout in your wallet.']].map(([title,body],i)=><li key={title}><span>0{i+1}</span><div><h3>{title}</h3><p>{body}</p></div></li>)}</ol></section></div>
     <div className="guest-help-row"><span>New to MemeHelm?</span><button className="text-button" onClick={()=>navigate('guide')}>Read the quick guide <Arrow/></button></div>
   </div>;
 
-  if(treasury)return <div className="guest-workspace guest-revenue">
-    <header className="guest-page-heading"><div><h1>Creator revenue</h1><p>Creator fees and wallet allocations.</p></div><button className="button secondary" onClick={()=>navigate('calculator')}>Try the split calculator <Arrow/></button></header>
-    <section className="revenue-locked"><span className="revenue-locked-icon"><DesktopIcon name="treasury" size={36}/></span><div><h2>See where your fees go.</h2><p>Sign in to view your coin’s collected fees and available payouts.</p><button className="button primary" onClick={connect}>Sign in with wallet <Arrow/></button></div></section>
-    <details className="guest-revenue-guide"><summary>How creator payouts work</summary><ol>{[['Settle creator fees','Move accrued fees into the protocol escrow.'],['Collect your balance','Claim escrow funds into your recipient wallet or split vault.'],['Release each share','Review the fixed recipients and approve the payout in your wallet.']].map(([title,text])=><li key={title}><strong>{title}</strong><p>{text}</p></li>)}</ol></details>
+  if(treasury)return <div className="guest-workspace guest-revenue guest-system">
+    <header className="guest-page-heading"><div><h1>Creator revenue</h1><p>Creator fees and wallet allocations.</p></div><button className="button secondary" onClick={()=>navigate('launch')}>Plan revenue in Launchpad <Arrow/></button></header>
+    <div className="guest-revenue-layout"><section className="revenue-locked"><span className="revenue-locked-icon"><DesktopIcon name="treasury" size={36}/></span><div><span className="application-kicker">CREATOR FEES · ETH</span><h2>Follow creator fees.<br/>Review every payout.</h2><p>Sign in and select a launched or imported pons v2 project to review creator fees and available payouts.</p><button className="button primary" onClick={connect}>Sign in with wallet <Arrow/></button><small>Revenue destinations are chosen during launch. Activated vault rules stay fixed.</small></div></section>
+    <section className="guest-workflow"><span className="application-kicker">THE PAYOUT PATH</span><h2>Three steps. Your approval.</h2><ol>{[['Settle creator fees','Move accrued fees into the protocol escrow.'],['Collect your balance','Claim escrow funds into your recipient wallet or vault.'],['Review the next action','Release fixed shares, prepare holder payouts or review escrow proposals when your project uses a vault.']].map(([title,text],i)=><li key={title}><span>0{i+1}</span><div><h3>{title}</h3><p>{text}</p></div></li>)}</ol></section></div>
+    <div className="guest-revenue-modes"><span>Revenue destinations</span><strong>Creator wallet</strong><strong>Fixed split</strong><strong>Holder payouts</strong><strong>Community escrow</strong></div>
   </div>;
 
-  return <div className="guest-workspace guest-copilot">
+  return <div className="guest-workspace guest-copilot guest-system">
     <header className="guest-page-heading"><div><h1>AI Copilot</h1><p>Chat about your coin. Keep project context. Review your next moves.</p></div></header>
-    <section className="copilot-sample" aria-label="Explore AI Copilot"><div className="copilot-sample-toolbar"><div className="example-tabs" aria-label="Copilot previews">{examples.map((item,i)=><button key={item.label} aria-pressed={example===i} onClick={()=>setExample(i)}>{item.label}</button>)}</div><span className="sample-label">{example===0?'Preview':'Example'}</span></div>
+    <section className="copilot-sample" aria-label="Explore AI Copilot"><div className="copilot-sample-toolbar"><span className="application-kicker">EXPLORE WITH MATE</span><div className="example-tabs" aria-label="Copilot previews">{examples.map((item,i)=><button key={item.label} aria-pressed={example===i} onClick={()=>setExample(i)}><span>0{i+1}</span>{item.label}<Arrow/></button>)}</div><span className="sample-label">{example===0?'Interactive preview':'Illustrative example'}</span></div>
       {example===0?<CopilotEntry mode="guest" signIn={connect}/>:<div className="copilot-sample-document"><div className="sample-project"><span>OC</span><div><strong>Orbit Club</strong><small>Illustrative project</small></div></div><h2>{examples[example].title}</h2><p>{examples[example].body}</p><button className="button primary copilot-example-signin" onClick={connect}>Sign in to use Copilot <Arrow/></button></div>}
       <footer><span>{example===0?'Chat uses your selected project’s context and available observations.':'Illustrative content. Your drafts stay private until you share them.'}</span><button className="text-button" onClick={()=>navigate('launch')}>Open Launchpad <Arrow/></button></footer>
     </section>

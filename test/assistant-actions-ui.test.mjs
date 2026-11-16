@@ -53,7 +53,7 @@ test('payout proposals only open the existing review; repeat navigation makes no
 
 test('planning retry preserves exact failed input and chat binding, then loads saved proposals',async()=>{
   const calls=[],action=calendar();let fail=true;const component=harness(async(path,body)=>{calls.push({path,body});if(!body)return{items:[]};if(fail){fail=false;throw new Error('Service interrupted.');}return{reply:'Review the supplied dates before creating drafts.',items:[action]};},{chatId:'chat-one'});
-  let tree=await mounted(component);findNode(tree,node=>node.type==='textarea').props.onChange({target:{value:'Plan next week’s updates.'}});tree=component.render();await findNode(tree,node=>node.type==='form').props.onSubmit({preventDefault(){}});tree=component.render();assert.equal(findNode(tree,node=>node.type==='textarea').props.value,'Plan next week’s updates.');await byText(tree,'Retry request').props.onClick();tree=component.render();assert.deepEqual(calls.filter(call=>call.body).map(call=>call.body),[{chatId:'chat-one',content:'Plan next week’s updates.'},{chatId:'chat-one',content:'Plan next week’s updates.'}]);assert.match(textOf(tree),/Next week’s community plan/);assert.equal(findNode(tree,node=>node.type==='textarea').props.value,'');component.unmount();
+  let tree=await mounted(component);findNode(tree,node=>node.type==='textarea').props.onChange({target:{value:'Plan next week’s updates.'}});tree=component.render();await findNode(tree,node=>node.type==='form').props.onSubmit({preventDefault(){}});tree=component.render();assert.equal(findNode(tree,node=>node.type==='textarea').props.value,'Plan next week’s updates.');await byText(tree,'Retry request').props.onClick();tree=component.render();const expected={chatId:'chat-one',content:'Plan next week’s updates.',timezone:'UTC'};assert.deepEqual(calls.filter(call=>call.body).map(call=>call.body),[expected,expected]);assert.match(textOf(tree),/Next week’s community plan/);assert.equal(findNode(tree,node=>node.type==='textarea').props.value,'');component.unmount();
 });
 
 test('interrupted AI requests expose saved-action inspection before an explicit fresh request',async()=>{
@@ -83,4 +83,11 @@ test('a slow initial list cannot erase a proposal returned by a faster planning 
   let finishList;const action=calendar(),component=harness(async(path,body)=>body?{reply:'Review the plan.',items:[action]}:new Promise(resolve=>{finishList=resolve;}));
   component.render();component.effects();let tree=component.render();findNode(tree,node=>node.type==='textarea').props.onChange({target:{value:'Create a content plan.'}});tree=component.render();await findNode(tree,node=>node.type==='form').props.onSubmit({preventDefault(){}});tree=component.render();assert.match(textOf(tree),/Next week’s community plan/);
   finishList({items:[]});await settle();tree=component.render();assert.match(textOf(tree),/Next week’s community plan/);assert.equal(byText(tree,'Create private drafts').props.disabled,true);component.unmount();
+});
+
+test('planning and its retry use UTC regardless of the browser time zone',async()=>{
+  const original=Intl.DateTimeFormat.prototype.resolvedOptions;let zone='Asia/Shanghai',attempts=0;const calls=[];
+  Intl.DateTimeFormat.prototype.resolvedOptions=function(){return{...original.call(this),timeZone:zone};};
+  const component=harness(async(path,body)=>{if(!body)return{items:[]};calls.push(body);if(!attempts++)throw new Error('Transport interrupted.');return{reply:'Review the original local time.',items:[]};});
+  try{let tree=await mounted(component);assert.match(textOf(tree),/All times are shown in\s+UTC/);findNode(tree,node=>node.type==='textarea').props.onChange({target:{value:'Draft an update tomorrow at 3pm.'}});tree=component.render();await findNode(tree,node=>node.type==='form').props.onSubmit({preventDefault(){}});zone='America/New_York';tree=component.render();await byText(tree,'Retry request').props.onClick();assert.equal(calls.length,2);assert.equal(calls[0].timezone,'UTC');assert.deepEqual(calls[1],calls[0]);}finally{component.unmount();Intl.DateTimeFormat.prototype.resolvedOptions=original;}
 });

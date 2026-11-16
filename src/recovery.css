@@ -22,4 +22,4 @@
 .window-discard-overlay h2{margin:0 0 12px;font-size:25px;letter-spacing:-.025em}
 .window-discard-overlay p{margin:0 0 24px;line-height:1.65;color:#bcc6ce}
 .window-discard-overlay .button-row{gap:10px;flex-wrap:wrap}
-@media(max-width:720px){.transaction-recovery{left:12px;bottom:88px;width:calc(100vw - 24px)}.transaction-recovery-toggle{padding:14px 16px;font-size:13px}.transaction-recovery-list{padding:0 16px 16px;max-height:56vh}.window-discard-overlay .modal{padding:24px}.window-discard-overlay .button-row{display:grid}.window-discard-overlay .button-row>*{width:100%}}
+@media(max-width:720px){.transaction-recovery{left:12px;bottom:108px;width:calc(100vw - 24px)}.transaction-recovery-toggle{padding:14px 16px;font-size:13px}.transaction-recovery-list{padding:0 16px 16px;max-height:56vh}.window-discard-overlay .modal{padding:24px}.window-discard-overlay .button-row{display:grid}.window-discard-overlay .button-row>*{width:100%}}

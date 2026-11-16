@@ -1,0 +1,93 @@
+/* One working surface and one companion. Tool changes never replace the conversation. */
+.copilot-tool-workspace.copilot-system { display:block; min-height:100%; height:100%; }
+.copilot-tool-workspace > .copilot-system-main { display:flex; flex-direction:column; min-height:100%; height:100%; }
+.copilot-tool-workspace .copilot-tool-view { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; }
+.copilot-tool-workspace .copilot-tool-view[hidden] { display:none !important; }
+.copilot-tool-workspace .copilot-system-context { position:sticky; top:0; z-index:2; flex:none; background:#192129; }
+.copilot-tool-workspace .workspace-tool-navigation { display:flex; flex:none; align-items:center; gap:4px; width:100%; min-width:0; padding:7px 15px; overflow-x:auto; overscroll-behavior-inline:contain; scrollbar-width:thin; border-bottom:1px solid #ffffff14; background:#161e25; }
+.copilot-tool-workspace .workspace-tool-navigation > button { display:inline-flex; flex:none; align-items:center; justify-content:center; gap:6px; min-height:34px; padding:7px 10px; border:1px solid transparent; border-radius:6px; color:#b8c4cf; background:transparent; font:500 11px/1.5 'DM Sans',sans-serif; white-space:nowrap; transition:background-color 160ms cubic-bezier(.22,1,.36,1),color 160ms cubic-bezier(.22,1,.36,1); }
+.copilot-tool-workspace .workspace-tool-navigation > button > svg { width:15px; height:15px; flex:none; }
+.copilot-tool-workspace .workspace-tool-navigation > button:hover { color:#edf1f5; background:#ffffff08; }
+.copilot-tool-workspace .workspace-tool-navigation > button[aria-current=page] { border-color:#d7ff0038; color:#e5f2a9; background:#d7ff000d; }
+.copilot-tool-workspace .workspace-tool-navigation > button[aria-current=page] > svg { color:#d7ff00; }
+.copilot-tool-workspace .workspace-tool-navigation > button:active { transform:translateY(1px); }
+.workspace-assistant.copilot-system { display:flex; flex-direction:column; width:100%; height:100%; min-width:0; min-height:0; overflow:hidden; background:#192129; container-type:inline-size; }
+.workspace-assistant-context { display:flex; flex:none; flex-direction:column; gap:10px; padding:14px 16px 12px; border-bottom:1px solid #ffffff14; background:#171f26; }
+.workspace-assistant-location { display:flex; align-items:baseline; justify-content:space-between; gap:12px; font-size:11px; line-height:1.5; color:#aebbc7; }
+.workspace-assistant-location strong { color:#e2eaf1; font-size:11px; font-weight:500; text-align:right; overflow-wrap:anywhere; }
+.workspace-assistant-context fieldset { width:100%; max-width:none; min-width:0; margin:0; padding:0; border:0; }
+.workspace-assistant-scope { display:flex; gap:4px; padding:3px; border:1px solid #ffffff14; border-radius:7px; background:#11191f; }
+.workspace-assistant-scope > button { flex:1; min-height:34px; padding:7px 10px; border:0; border-radius:4px; color:#afbdc9; background:transparent; font:500 11px/1.5 'DM Sans',sans-serif; }
+.workspace-assistant-scope > button[aria-pressed=true] { color:#edf1f5; background:#2a3540; }
+.workspace-assistant-scope > button:hover:not(:disabled) { color:#edf1f5; }
+.workspace-assistant-scope > button:disabled { cursor:not-allowed; opacity:.6; }
+.workspace-assistant-context .project-selector { width:100%; min-width:0; }
+.workspace-assistant-context .project-selector select { width:100%; min-width:0; max-width:100%; }
+.workspace-assistant-body { flex:1; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; }
+.workspace-assistant .chat-system.chat-system-sidebar { flex:1; display:grid; grid-template-columns:minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); width:100%; height:100%; min-height:0; }
+.workspace-assistant .chat-system.chat-system-sidebar .chat-system-context-toggle { display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:36px; padding:8px 16px; font-size:11px; color:#bcc9d5; background:#151d24; border:0; border-bottom:1px solid #ffffff13; border-radius:0; }
+.workspace-assistant .chat-system.chat-system-sidebar .chat-panel { grid-column:1; grid-row:2; }
+.workspace-assistant .chat-system.chat-system-sidebar .chat-side { grid-column:1; grid-row:2; display:none; border:0; }
+.workspace-assistant .chat-system.chat-system-sidebar.chat-system-context-open .chat-panel { display:none; }
+.workspace-assistant .chat-system.chat-system-sidebar.chat-system-context-open .chat-side { display:flex; }
+.workspace-assistant .chat-system .chat-system-heading { padding:12px 16px 8px; }
+.workspace-assistant .chat-system .chat-system-assistant h2 { font-size:14px; }
+.workspace-assistant .chat-system .chat-system-assistant p { max-width:160px; font-size:10px; }
+.workspace-assistant .chat-system .chat-system-assistant p > span { display:none; }
+.workspace-assistant .chat-system .chat-system-heading > .button-row { gap:3px 8px; max-width:100px; }
+.workspace-assistant .chat-system .chat-mode-switch { gap:20px; padding-inline:16px; }
+.workspace-assistant .chat-system .chat-mode-switch > button { min-height:38px; font-size:11px; }
+.workspace-assistant .chat-system .chat-thread { padding:16px; }
+.workspace-assistant .chat-system .chat-empty > strong { font-size:20px; line-height:1.4; }
+.workspace-assistant .chat-system .chat-empty > p { font-size:11px; max-width:32ch; }
+.workspace-assistant .chat-system .chat-system-starts { grid-template-columns:1fr; }
+.workspace-assistant .chat-system .chat-system-starts > button { min-height:58px; padding-block:10px; }
+.workspace-assistant .chat-system .chat-system-starts > button > svg { display:block; }
+.workspace-assistant .chat-system .chat-system-starts > button > strong { font-size:11px; }
+.workspace-assistant .chat-system .chat-system-starts > button > span { font-size:11px; }
+.workspace-assistant .chat-system .ai-privacy-note { font-size:11px; }
+.workspace-assistant .chat-system .chat-bubble { font-size:12px; line-height:1.75; }
+.workspace-assistant .chat-system .chat-author { gap:8px; font-size:11px; }
+.workspace-assistant .chat-system .chat-author > time { max-width:145px; font-size:11px; }
+.workspace-assistant .chat-system .chat-system-more-prompts, .workspace-assistant .chat-system .chat-system-history-note { font-size:11px; }
+.workspace-assistant .chat-system .chat-system-composer-area { padding:0 12px 12px; }
+.workspace-assistant .chat-system .chat-composer textarea { font-size:13px; min-height:70px; max-height:150px; }
+.workspace-assistant .chat-system .chat-system-composer-footer > span > span { display:none; }
+.workspace-assistant .chat-system .chat-composer .button { min-height:34px; padding:7px 10px; font-size:11px; }
+.workspace-assistant .chat-system .chat-system-action-surface { padding:16px; }
+.workspace-assistant .chat-system .chat-side > .panel { padding:18px 16px; }
+.workspace-assistant .chat-system .chat-history-item strong { font-size:12px; }
+.workspace-assistant .chat-system .chat-history-item small { font-size:11px; }
+.workspace-assistant .chat-system .chat-side .text-button { min-height:36px; font-size:11px; }
+.workspace-assistant .copilot-entry-system.copilot-chat-entry { flex:1; display:flex; flex-direction:column; align-items:stretch; justify-content:flex-start; gap:0; min-height:0; padding:22px 18px; overflow:auto; overscroll-behavior:contain; }
+.workspace-assistant .copilot-entry-system.copilot-chat-entry > * { flex-shrink:0; }
+.workspace-assistant .copilot-entry-system .copilot-entry-welcome { flex-direction:column; align-items:flex-start; gap:12px; margin:0 0 18px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-mate { width:64px; height:78px; margin:0 auto; }
+.workspace-assistant .copilot-entry-system .copilot-entry-intro h2 { font-size:24px; line-height:1.3; letter-spacing:-.6px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-intro p { margin-top:10px; font-size:12px; line-height:1.7; }
+.workspace-assistant .copilot-entry-system .copilot-entry-topics { margin:0 0 18px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-topics li { min-height:42px; padding-block:8px; font-size:11px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-next { flex-direction:column; align-items:stretch; gap:12px; padding-top:16px; margin-bottom:14px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-next > p { font-size:11px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-actions { display:flex; flex-direction:column; width:100%; gap:8px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-actions > .button { width:100%; min-height:40px; font-size:12px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-question { flex:none; }
+.workspace-assistant .copilot-entry-system .copilot-entry-question textarea { font-size:12px; min-height:64px; }
+.workspace-assistant .copilot-entry-system .copilot-entry-footnote { font-size:10px; line-height:1.6; }
+/* Guest entry puts the usable next step before its noninteractive topic examples. */
+.workspace-assistant .copilot-entry-system[aria-label="AI chat preview"] .copilot-entry-welcome { order:0; margin-bottom:14px; }
+.workspace-assistant .copilot-entry-system[aria-label="AI chat preview"] .copilot-entry-next { order:1; padding-top:12px; margin-bottom:18px; }
+.workspace-assistant .copilot-entry-system[aria-label="AI chat preview"] .copilot-entry-topics { order:2; margin-bottom:16px; }
+.workspace-assistant .copilot-entry-system[aria-label="AI chat preview"] .copilot-entry-question { order:3; }
+.workspace-assistant .copilot-entry-system[aria-label="AI chat preview"] .copilot-entry-footnote { order:4; }
+.workspace-assistant button:focus-visible, .workspace-assistant textarea:focus-visible { outline:2px solid #d7ff00; outline-offset:2px; }
+@media (max-width:720px) {
+ .workspace-assistant-scope > button { min-height:42px; font-size:12px; }
+ .copilot-tool-workspace .workspace-tool-navigation { padding-inline:10px; }
+ .copilot-tool-workspace .workspace-tool-navigation > button { min-height:42px; padding-inline:12px; font-size:12px; }
+ .workspace-assistant .chat-system .chat-composer textarea { font-size:16px; }
+ .workspace-assistant .chat-system .chat-system-context-toggle { min-height:42px; font-size:11px; }
+ .workspace-assistant .chat-system .chat-system-heading .text-button { min-height:36px; }
+ .workspace-assistant .chat-system .chat-mode-switch > button { min-height:42px; font-size:12px; }
+ .workspace-assistant .copilot-entry-system .copilot-entry-question textarea { font-size:16px; }
+}

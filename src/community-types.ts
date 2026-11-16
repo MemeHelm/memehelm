@@ -1,6 +1,6 @@
 export type CommunityLinks={website:string;x:string;telegram:string;discord:string};
 export type EventDetails={title:string;description:string;startsAt:string;endsAt:string;url:string;capacity:number|null};
-export type CommunityEvent={id:string;revision:number;details:EventDetails;publishedDetails:EventDetails|null;publishedRevision?:number;status:'upcoming'|'cancelled'|'completed';going:number;attended:number;outcome?:string;cancellation?:string};
+export type CommunityEvent={id:string;revision:number;details:EventDetails;publishedDetails:EventDetails|null;lastPublishedDetails?:EventDetails|null;publishedRevision?:number;status:'upcoming'|'cancelled'|'completed';going:number;attended:number;outcome?:string;cancellation?:string};
 export type PublicEvent=EventDetails&{id:string;status:CommunityEvent['status'];going:number;attending:boolean;recap:string|null;cancellation:string|null};
 export type PublicCommunityData={links:Partial<CommunityLinks>;events:PublicEvent[]};
 export type ManualPublication={postId:string;url:string;publishedAt:string|null;recordedAt:string;notes:string;source:'creator';verification:'unverified'};

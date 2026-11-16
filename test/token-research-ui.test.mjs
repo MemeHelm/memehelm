@@ -7,9 +7,9 @@ const report={address,checkedAt:date,registration:{status:'available',registered
 
 test('research renders actual receipt links, stated coverage and explicit attribution limits',async()=>{
   const harness=componentHarness(new URL('../src/TokenResearch.tsx',import.meta.url),'TokenResearch',{address},{'./api':{api:async()=>report}});
-  try{let tree=harness.render();assert.match(textOf(tree),/Reading the launch registry/);harness.effects();await settle();tree=harness.render();const text=textOf(tree);assert.match(text,/Example Coin/);const coverage=findNode(tree,node=>typeof node.type==='function'&&node.type.name==='CoverageNote');assert.match(textOf(coverage.type(coverage.props)),/5001\s*–\s*25000/);assert.match(text,/0 buys · 1 sells/);assert.match(text,/1\s+pool events were excluded/);assert.match(text,/Funding sources have not been established/);assert.match(text,/No safety rating/);assert.ok(findNode(tree,node=>node.type==='a'&&node.props.href==='#app/discover/'+address));
+  try{let tree=harness.render();assert.match(textOf(tree),/Reading the launch registry/);harness.effects();await settle();tree=harness.render();const text=textOf(tree);assert.match(text,/Example Coin/);assert.match(text,/Nov 15, 12:00 AM UTC/);const coverage=findNode(tree,node=>typeof node.type==='function'&&node.type.name==='CoverageNote');assert.match(textOf(coverage.type(coverage.props)),/5001\s*–\s*25000/);assert.match(text,/0 buys · 1 sells/);assert.match(text,/1\s+pool events were excluded/);assert.match(text,/Funding sources have not been established/);assert.match(text,/No safety rating/);assert.ok(findNode(tree,node=>node.type==='a'&&node.props.href==='#app/discover/'+address));
     // Receipt is a pure child component; evaluate it to check its destination without a DOM.
-    const receipt=findNode(tree,node=>typeof node.type==='function'&&node.type.name==='Receipt');assert.equal(receipt.type(receipt.props).props.href,report.evidence[0].url);
+    const receipt=findNode(tree,node=>typeof node.type==='function'&&node.type.name==='Receipt');assert.equal(receipt.type(receipt.props).props.href,report.evidence[0].url);assert.match(receipt.type(receipt.props).props.title,/Nov 15, 12:00 AM UTC/);
   }finally{harness.unmount();}
 });
 

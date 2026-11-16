@@ -49,6 +49,8 @@
 .entry-loader.is-motion-preview .entry-particles>i:nth-child(2){animation-direction:reverse!important}.entry-loader.is-motion-preview .entry-particles>i:nth-child(3){animation-delay:600ms!important}
 .entry-loader.mate-intro{background:transparent}
 .entry-loader.mate-intro.is-leaving{transition-duration:180ms!important}
+[data-mate-arrival="pending"]{opacity:0!important}
+[data-mate-arrival="settled"]{opacity:1!important;transition:opacity 180ms var(--mh-ease)}
 .mate-companion.is-arriving{visibility:hidden}
 .mate-intro{--mate-character-width:clamp(220px,30vw,300px)}
 .mate-intro-backdrop{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 43%,#24303a,#090d12 72%)}
@@ -74,13 +76,13 @@
 .mate-portal{position:absolute;left:calc(50% + 170px);top:44%;width:clamp(130px,19vw,180px);aspect-ratio:190/248;transform:translate(-50%,-50%);opacity:0;z-index:2}.mate-portal>svg{display:block;width:100%;height:100%}
 .mate-intro-title{position:absolute;left:24px;right:24px;top:calc(44% + var(--mate-character-width)*.607 + 8px);text-align:center;pointer-events:none;opacity:0}
 .mate-intro-title strong{font:500 clamp(24px,3vw,35px)/1.2 'Space Grotesk',sans-serif;letter-spacing:-.03em;color:#edf1f5}.mate-intro-title strong span{color:#d7ff00}.mate-intro-title p{margin:8px 0 0;font-size:12px;line-height:1.6;color:#a6b0bb}
-.mate-companion{position:absolute;right:24px;bottom:112px;z-index:90;width:76px;height:94px;pointer-events:none}
+.mate-companion{position:absolute;right:24px;bottom:112px;z-index:90;width:128px;height:156px;pointer-events:none}
 .mate-launcher{position:relative;display:grid;place-items:center;width:100%;height:100%;padding:0;border:0;background:transparent;pointer-events:auto;border-radius:10px}
-.mate-launcher>.mate-character{filter:drop-shadow(0 3px 4px #0005)}
+.mate-launcher>.mate-character{filter:drop-shadow(0 6px 9px #0006)}
 .mate-launcher-label{position:absolute;right:calc(100% + 8px);top:28px;white-space:nowrap;background:#202831;color:#edf1f5;border:1px solid #475360;padding:7px 11px;border-radius:6px;font-size:12px;opacity:0;pointer-events:none}
 .mate-launcher:focus-visible .mate-launcher-label{opacity:1}.mate-collapse{position:absolute;right:-8px;top:-8px;display:grid;place-items:center;width:28px;height:28px;background:#1b242d;border:1px solid #46515d;border-radius:6px;color:#b9c5d0;pointer-events:auto}.mate-collapse svg{width:15px;height:15px}
 .mate-companion.is-compact{width:44px;height:44px}.mate-companion.is-compact .mate-launcher{background:#202831;border:1px solid #46515d}.mate-companion.is-compact .mate-launcher>svg{width:27px;height:27px}.mate-companion.is-compact .mate-launcher-label{top:5px}
 @media(hover:hover) and (pointer:fine){.mate-launcher:hover .mate-launcher-label{opacity:1}.mate-collapse:hover{color:#edf1f5;background:#2b3540}}
-@media(min-width:721px){.os-desktop.has-active-window .mate-companion{bottom:20px}.os-desktop.has-active-window .mate-companion:not(.is-compact){width:56px;height:64px}.os-desktop.has-active-window .desktop-taskbar{padding-right:90px}}
-@media(max-width:720px){.desktop-shell.os-desktop .desktop-taskbar{padding-right:78px}.mate-companion,.mate-companion.is-compact{right:14px;bottom:20px;width:48px;height:56px}.mate-collapse{display:none}.mate-launcher-label{display:none}}
+@media(min-width:721px){.desktop-shell.os-desktop.has-active-window{grid-template-rows:44px minmax(0,1fr) 128px}.os-desktop.has-active-window .mate-companion{bottom:8px}.os-desktop.has-active-window .mate-companion:not(.is-compact){width:112px;height:136px}.os-desktop.has-active-window .mate-companion.is-compact{bottom:20px}.desktop-shell.os-desktop.has-active-window .desktop-taskbar{height:128px;align-items:flex-end;padding-right:156px}}
+@media(max-width:720px){.desktop-shell.os-desktop .desktop-taskbar{padding-right:108px}.mate-companion,.mate-companion.is-compact{right:12px;bottom:8px;width:72px;height:88px}.mate-collapse{display:none}.mate-launcher-label{display:none}}
 @media(max-height:560px){.mate-intro{--mate-character-width:180px}.mate-intro-title strong{font-size:24px}.mate-intro-title p{display:none}}

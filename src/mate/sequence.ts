@@ -1,6 +1,6 @@
 import {flightGeometry,mateTime,MATE_DURATION,MATE_REVEAL,MATE_STORY_END,MATE_STORY_REVEAL,MATE_STORY_LAND} from './choreography';
 
-type Options={onFrame:(seconds:number)=>void;onComplete:()=>void;onFailure:()=>void;anchor:()=>DOMRect|null};
+type Options={onFrame:(seconds:number)=>void;onComplete:()=>void;onFailure:()=>void;anchor:()=>HTMLElement|null};
 type Frame={at:number;transform?:string;opacity?:number;clipPath?:string};
 const END=MATE_STORY_END;
 const offset=(storySeconds:number)=>mateTime(storySeconds)/(MATE_DURATION/1000);
@@ -8,6 +8,17 @@ const offset=(storySeconds:number)=>mateTime(storySeconds)/(MATE_DURATION/1000);
 export function createMateSequence(surface:HTMLElement,options:Options){
   const animations:Animation[]=[],transients:Element[]=[];
   let disposed=false,frame=0,observer:ResizeObserver|undefined;
+  let anchorElement:HTMLElement|null=null,priorArrival:string|null=null,handedOff=false,lastGeometry='';
+  function releaseAnchor(){
+    if(!anchorElement)return;
+    if(priorArrival===null)anchorElement.removeAttribute('data-mate-arrival');else anchorElement.setAttribute('data-mate-arrival',priorArrival);
+    observer?.unobserve(anchorElement);anchorElement=null;
+  }
+  function followAnchor(next:HTMLElement|null){
+    if(next===anchorElement)return;
+    releaseAnchor();anchorElement=next;
+    if(anchorElement){priorArrival=anchorElement.getAttribute('data-mate-arrival');anchorElement.setAttribute('data-mate-arrival',handedOff?'settled':'pending');observer?.observe(anchorElement);}
+  }
   const query=(selector:string)=>{
     const node=surface.querySelector<HTMLElement|SVGElement>(selector);
     if(!node)throw new Error('Missing MATE story layer');return node;
@@ -26,7 +37,7 @@ export function createMateSequence(surface:HTMLElement,options:Options){
   const shell=(name:string)=>query(`[data-mate-actor] [data-mate-shell="${name}"]`);
   const rotate=(name:string,keys:[number,number][])=>transform(part(name),keys.map(([at,degrees])=>[at,`rotate(${degrees}deg)`]));
   function dispose(){
-    if(disposed)return;disposed=true;cancelAnimationFrame(frame);observer?.disconnect();
+    if(disposed)return;disposed=true;cancelAnimationFrame(frame);releaseAnchor();observer?.disconnect();
     animations.forEach(animation=>animation.cancel());transients.forEach(node=>node.remove());
   }
   function assemble(node:Element,at:number,x:number,y:number,turn:number,duration=.65,trail=false){
@@ -54,9 +65,7 @@ export function createMateSequence(surface:HTMLElement,options:Options){
     ]);
   }
   try{
-    const compact=!!surface.ownerDocument.querySelector('[data-mate-anchor]')?.closest('.is-compact');
-    fade(pose,[[0,0],[.28,.15],[.9,.8],[1.2,1],[14.72,1],[14.96,compact?0:1],[END,compact?0:1]]);
-    if(compact)fade(query('[data-mate-compact]'),[[0,0],[14.72,0],[14.96,1],[END,1]]);
+    fade(pose,[[0,0],[.28,.15],[.9,.8],[1.2,1],[14.48,1],[END,0]]);
     transform(pose,[
       [0,'translateY(4px) scale(.98)'],[1.2,'translateY(0) scale(1)'],
       [1.65,'translate(0,0) rotate(0deg) scale(1)'],[1.85,'translate(10px,5px) rotate(10deg) scale(1.07,.93)'],
@@ -118,7 +127,11 @@ export function createMateSequence(surface:HTMLElement,options:Options){
     const key=animate(query('[data-mate-key]'),[{at:0,opacity:0},{at:END,opacity:0}],move);
     const flight=transform(actor,[[0,'translate(-50%,-50%)'],[END,'translate(-50%,-50%)']],move);
     function resize(){
-      const rect=surface.getBoundingClientRect(),anchor=options.anchor()??new DOMRect(rect.right-92,rect.bottom-112,56,64);
+      const rect=surface.getBoundingClientRect();followAnchor(options.anchor());
+      // With no rendered destination, end in place instead of inventing a lower-right companion.
+      const anchor=anchorElement?.getBoundingClientRect()??new DOMRect(rect.x+rect.width*.5-28,rect.y+rect.height*.44-34,56,68);
+      const geometry=[rect.x,rect.y,rect.width,rect.height,anchor.x,anchor.y,anchor.width,anchor.height,actor.offsetWidth,actor.offsetHeight].join(',');
+      if(geometry===lastGeometry)return;lastGeometry=geometry;
       const path=flightGeometry({width:rect.width,height:rect.height,actorWidth:actor.offsetWidth,actorHeight:actor.offsetHeight,target:{x:anchor.x-rect.x,y:anchor.y-rect.y,width:anchor.width,height:anchor.height}});
       const actorTransform=(x=0,y=0,scale=1,turn=0)=>`translate(-50%,-50%) translate(${x}px,${y}px) scale(${scale}) rotate(${turn}deg)`;
       const actorKeys=[
@@ -136,21 +149,20 @@ export function createMateSequence(surface:HTMLElement,options:Options){
       const keyX=path.portalX+portalWidth*.425,keyY=-portalHeight*.435;
       const keyKeys=[{at:0,opacity:0,transform:'translate(95px,26px) rotate(-20deg)'},{at:9.12,opacity:0,transform:'translate(95px,26px) rotate(-20deg)'},{at:9.22,opacity:1,transform:'translate(105px,15px) rotate(0deg)'},{at:9.58,opacity:1,transform:`translate(${(105+keyX)/2}px,${keyY-30}px) rotate(160deg)`},{at:9.86,opacity:1,transform:`translate(${keyX}px,${keyY}px) rotate(360deg)`},{at:10.08,opacity:0,transform:`translate(${keyX}px,${keyY}px) rotate(360deg)`},{at:END,opacity:0}];
       (key.effect as KeyframeEffect).setKeyframes(keyKeys.map(({at,...values})=>({...values,offset:offset(at),easing:move})));
-      const folded=query('[data-mate-compact]') as HTMLElement;
-      folded.style.width=`${anchor.width/path.scale}px`;folded.style.height=`${anchor.height/path.scale}px`;
-      folded.style.borderWidth=`${1/path.scale}px`;folded.style.borderRadius=`${10/path.scale}px`;
-      const foldedIcon=folded.querySelector('svg');if(foldedIcon){foldedIcon.style.width=`${27/path.scale}px`;foldedIcon.style.height=`${27/path.scale}px`;}
     }
     observer=new ResizeObserver(resize);observer.observe(surface);
-    const anchor=surface.ownerDocument.querySelector('[data-mate-anchor]');if(anchor)observer.observe(anchor);
     resize();
-    let revealed=false,lastStep=-1;
+    let lastStep=-1;
     function tick(){
       if(disposed)return;
       const seconds=Math.min(Number(flight.currentTime??0)/1000,MATE_DURATION/1000),step=Math.floor(seconds*20);
       try{
-        if(step!==lastStep){lastStep=step;options.onFrame(seconds);}
-        if(seconds>=MATE_REVEAL&&!revealed){revealed=true;resize();}
+        if(step!==lastStep){
+          lastStep=step;options.onFrame(seconds);
+          // Resolve again after the desktop reveal, wallet hydration or a responsive layout change.
+          if(seconds>=MATE_REVEAL)resize();
+          if(seconds>=mateTime(14.48)&&!handedOff){handedOff=true;anchorElement?.setAttribute('data-mate-arrival','settled');}
+        }
       }catch{dispose();options.onFailure();return;}
       frame=requestAnimationFrame(tick);
     }

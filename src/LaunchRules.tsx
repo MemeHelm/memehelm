@@ -1,3 +1,4 @@
+import {utcDateTime} from './time';
 import {useId} from 'react';
 import {formatEther,formatUnits} from 'viem';
 import {PONS} from '../shared/pons-addresses.mjs';
@@ -27,7 +28,7 @@ export function LaunchRules({draft,wallet,options,prepared}:Props){
  const config=verified?(prepared?.config||options?.configs.find(item=>item.id===settings.configId)):null;
  // Prepared transactions must use their own rule snapshot, never an older options response.
  const protection:ProtocolRules|undefined=verified?(prepared?(prepared as PinnedPrepared).protocolRules:options||undefined):undefined;
- const checked=protection?.checkedAt&&Number.isFinite(Date.parse(protection.checkedAt))?new Date(protection.checkedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',timeZoneName:'short'}):null;
+ const checked=protection?.checkedAt&&Number.isFinite(Date.parse(protection.checkedAt))?utcDateTime(protection.checkedAt,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):null;
  const recipient=address(settings.creatorFeeRecipient),exemptions=Array.isArray(settings.snipeTaxExemptions)?settings.snipeTaxExemptions:[];
  const automatic=[{value:address(wallet),label:'Launching wallet'},{value:recipient,label:'Fee recipient'}].filter(item=>item.value);
  const automaticWallets=Array.from(new Set(automatic.map(item=>item.value!)));

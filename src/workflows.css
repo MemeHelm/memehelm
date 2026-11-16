@@ -69,6 +69,14 @@
 @container(max-width:820px){.chat-workspace{grid-template-columns:1fr}}
 @container(max-width:650px){.chat-bubble{max-width:100%}.chat-composer{flex-direction:column;align-items:stretch}.chat-composer .button{width:100%}}
 .draft-edit-action{margin-bottom:16px}
+.operations-workspace>.notice.error{flex-wrap:wrap;align-items:center}
+.operations-workspace>.notice.error>span{flex:1 1 240px;min-width:0}
+.operations-workspace>.notice.error>.button{flex:none;min-height:44px;padding:10px 14px}
+.operations-workspace>.ops-recovered-outcome{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;border:1px solid var(--mh-line);background:var(--mh-panel)}
+.ops-recovered-outcome>.field{display:grid;min-width:0;margin:0}
+.operations-workspace .ops-recovered-outcome>.field textarea{width:100%;min-height:128px;resize:vertical;font-size:16px}
+.ops-recovered-outcome p{margin:0;max-width:70ch}
+.ops-recovered-outcome>.text-button{justify-self:start;min-height:44px;padding:8px 0}
 .draft-editor{display:grid;gap:16px;margin-block:20px}
 .draft-editor .field textarea{min-height:300px;resize:vertical;font:inherit;line-height:1.7;white-space:pre-wrap}
 .draft-editor-hint{display:flex;align-items:start;justify-content:space-between;gap:16px;color:var(--mh-muted);font-size:12px;line-height:1.5}

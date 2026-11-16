@@ -7,19 +7,25 @@ import {sendTransaction,completeTransaction,pendingTransactions} from './wallet'
 import type {StoredTransaction} from './wallet';
 import {TransactionRecovery} from './TransactionRecovery';
 import {useModalFocus} from './useModalFocus';
+import {useWindowGuard} from './window-guard';
 import type {Page,Project,WorkspaceStatus,Snapshot,Artifact,LaunchDraft,Prepared} from './types';
 import {WalletSession} from './WalletSession';
 import {MarketWorkspace} from './MarketWorkspace';
 import {SignalsWorkspace} from './SignalsWorkspace';
-import {Desktop} from './Desktop';
+import {Desktop,apps} from './Desktop';
+import {WorkspaceAssistant} from './WorkspaceAssistant';
+import {WorkspaceSignIn} from './WorkspaceSignIn';
+import {routePage,workspaceToolPages,workspaceViewFor,workspacePageFor,primaryContentKey} from '../shared/workspace-navigation.mjs';
+import type {CopilotView} from './ProjectToday';
 import {EntryLoader,prefersLessMotion} from './EntryLoader';
 import {hasSeenMateIntro,markMateIntroSeen} from './mate/intro-preference';
 import {GuestWorkspace} from './GuestWorkspace';
 import {LaunchWizard} from './LaunchWizard';
 import {CopilotWorkspace} from './CopilotWorkspace';
-import {ProjectPublication} from './ProjectPublication';
+import {ProjectsWorkspace} from './ProjectsWorkspace';
+import {ProjectNavigation} from './ProjectNavigation';
+import {MarketNavigation} from './MarketNavigation';
 import {PublicProject} from './PublicProject';
-import {HelmMark} from './Brand';
 import './product.css';
 import './brand-theme.css';
 import './motion.css';
@@ -29,14 +35,24 @@ import './workspace-design.css';
 import './guest-workspace.css';
 import './os-theme.css';
 import './recovery.css';
+import './system-shell.css';
+import './command-board.css';
+import './launch-system.css';
+import './application-system.css';
+import './copilot-system.css';
+import './community-system.css';
+import './treasury-system.css';
+import './workspace-assistant.css';
+import './single-workspace.css';
 
 function Icon({name,size=20}:{name:string;size?:number}){const paths:Record<string,React.ReactNode>={grid:<><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></>,launch:<><path d="m12 3 4 9-4 9-4-9 4-9Z"/><path d="m3 12 9-4 9 4-9 4-9-4Z"/></>,vault:<><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="12" cy="12" r="4"/><path d="M12 8v8m-4-4h8M5 8v2m0 4v2"/></>,spark:<><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7L12 3Z"/><path d="m20 2 .7 1.3L22 4l-1.3.7L20 6l-.7-1.3L18 4l1.3-.7L20 2Z"/></>,settings:<><circle cx="12" cy="12" r="3"/><path d="m9 3-.7 2.2L6 6l-2.2-.5L2 8.5l1.5 1.7v3.5L2 15.5l1.8 3 2.2-.5 2.3.8L9 21h6l.7-2.2 2.3-.8 2.2.5 1.8-3-1.5-1.8v-3.5L22 8.5l-1.8-3L18 6l-2.3-.8L15 3H9Z"/></>,arrow:<path d="M5 12h14m-5-5 5 5-5 5"/>,plus:<path d="M12 5v14M5 12h14"/>,wallet:<><path d="M20 8V5a2 2 0 0 0-2-2H6a3 3 0 0 0 0 6h14v11H6a3 3 0 0 1-3-3V6"/><path d="M20 12h-5v5h5"/><path d="M17 14.5h.01"/></>,check:<path d="m5 12 4 4L19 6"/>,external:<><path d="M14 3h7v7m0-7-11 11"/><path d="M10 3H3v18h18v-7"/></>,clock:<><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,shield:<><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z"/><path d="m8 12 3 3 5-6"/></>,refresh:<><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></>,file:<><path d="M14 3H5v18h14V8l-5-5Zm0 0v5h5"/><path d="M8 12h8m-8 4h5"/></>,close:<path d="m6 6 12 12M6 18 18 6"/>,menu:<path d="M4 6h16M4 12h16M4 18h16"/>,copy:<><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></>,chart:<><path d="M3 3v18h18"/><path d="m6 15 4-5 4 3 6-7"/></>};return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]||paths.file}</svg>;}
 const shorten=(value:string)=>`${value.slice(0,6)}…${value.slice(-4)}`;
-const number=(value:string|undefined)=>value===undefined?'—':Number(value).toLocaleString('en-US',{maximumFractionDigits:5});
-function Badge({children,tone='neutral'}:{children:React.ReactNode;tone?:string}){return <span className={`badge ${tone}`}>{children}</span>;}
 function Field({label,hint,children}:{label:string;hint?:string;children:React.ReactNode}){return <label className="field"><span>{label}</span>{children}{hint&&<small>{hint}</small>}</label>;}
-function Empty({icon='launch',title,body,action}:{icon?:string;title:string;body:string;action?:React.ReactNode}){return <div className="empty"><span className="empty-icon"><Icon name={icon} size={26}/></span><h3>{title}</h3><p>{body}</p>{action}</div>;}
-function initialPage():Page {if(/^#app\/discover\/0x[a-fA-F0-9]{40}$/.test(location.hash))return 'discover';const match=location.hash.match(/^#app\/(discover|signals|overview|launch|treasury|copilot|calculator|guide)$/);return match?match[1] as Page:'home';}
+function initialPage():Page{
+ const returned=new URLSearchParams(location.search);
+ const routed=routePage(location.hash) as Page;
+ return returned.has('x')&&returned.has('community')?'publishing':routed==='calculator'?'launch':routed;
+}
 function App(){
  const [entered,setEntered]=useState(()=>prefersLessMotion()||hasSeenMateIntro()),[fullIntro,setFullIntro]=useState(false),[introRevealed,setIntroRevealed]=useState(false);
  const replayIntro=()=>{setFullIntro(true);setIntroRevealed(false);setEntered(false);};
@@ -45,23 +61,39 @@ function App(){
 function Workspace({wallet,connect,logout,signing,entered,introRevealed,replayIntro}:{wallet:string;connect:()=>Promise<void>;logout:()=>Promise<void>;signing:boolean;entered:boolean;introRevealed:boolean;replayIntro:()=>void}){
  const [page,setPage]=useState<Page>(initialPage),[menu,setMenu]=useState(false),[projects,setProjects]=useState<Project[]>([]),[status,setStatus]=useState<WorkspaceStatus|null>(null),[message,setMessage]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(''),[selected,setSelected]=useState(''),[snapshot,setSnapshot]=useState<Snapshot|null>(null),[chainError,setChainError]=useState(''),[importing,setImporting]=useState(false),[copyState,setCopyState]=useState('');
  const active=projects.find(p=>p.id===selected)||projects[0];
+ const [treasuryBlocked,setTreasuryBlocked]=useState(false),[launchBlocked,setLaunchBlocked]=useState(false);
+ const [editorGuards,setEditorGuards]=useState<Record<string,boolean>>({});
+ useEffect(()=>{const update=(event:Event)=>{const detail=(event as CustomEvent<{id:string;blocked:boolean}>).detail;if(!detail?.id)return;setEditorGuards(current=>{if(!!current[detail.id]===detail.blocked)return current;const next={...current};if(detail.blocked)next[detail.id]=true;else delete next[detail.id];return next;});};window.addEventListener('memehelm-window-guard',update);return()=>window.removeEventListener('memehelm-window-guard',update);},[]);
+ useWindowGuard('treasury',treasuryBlocked);useWindowGuard('launch',launchBlocked);
+ const savedRoutes=React.useRef(new Map<Page,string>());
+ const lastToolView=React.useRef<CopilotView>(workspaceViewFor(page) as CopilotView);
+ if(workspaceToolPages.includes(page))lastToolView.current=workspaceViewFor(page) as CopilotView;
+ const [projectsState,setProjectsState]=useState<'loading'|'ready'|'error'>(wallet?'loading':'ready');
  const [payoutReview,setPayoutReview]=useState<{projectId:string;version:number}|null>(null);
  useEffect(()=>{const open=(event:Event)=>{const id=(event as CustomEvent<{projectId?:string}>).detail?.projectId;if(!id||!projects.some(project=>project.id===id))return;if(selectProject(id)){setPayoutReview({projectId:id,version:Date.now()});go('treasury');}};window.addEventListener('memehelm-open-distribution-review',open);return()=>window.removeEventListener('memehelm-open-distribution-review',open);},[projects,selected]);
- function selectProject(id:string){if(id!==active?.id&&!window.dispatchEvent(new CustomEvent('memehelm-before-project-change',{cancelable:true}))){setMessage('Save or discard your Copilot edits before changing projects.');return false;}setSelected(id);return true;}
+ function selectProject(id:string){if(id!==active?.id&&!window.dispatchEvent(new CustomEvent('memehelm-before-project-change',{cancelable:true}))){setMessage('Finish the current request, save your edits or close the open review before changing projects.');return false;}setSelected(id);return true;}
  function unresolved(kind:'launch'|'vault'){return pendingTransactions(wallet).some(record=>record.intent.kind===kind);}
  function saveActivatedVault(address:string,source:LaunchDraft){
   if((draft.name&&draft.name!==source.name)||(draft.symbol&&draft.symbol!==source.symbol))throw new Error('Save your current draft before restoring this earlier activation. Its transaction is confirmed and will stay available here.');
   const next={...draft,splitEnabled:source.splitEnabled,holdersEnabled:source.holdersEnabled,socialEnabled:source.socialEnabled,projectTreasury:source.projectTreasury,auditTreasury:source.auditTreasury,auditBps:source.auditBps,vaultAddress:address,creatorFeeRecipient:address};
   localStorage.setItem(`memehelm:4663:pons-v2:${wallet.toLowerCase()}:draft`,JSON.stringify(next));setDraft(next);setPrepared(null);setReviewed(false);
  }
- async function reload(){const list=await api<Project[]>('/projects');setProjects(list);const returnedProject=new URLSearchParams(location.search).get('community');if(returnedProject&&list.some(project=>project.id===returnedProject))setSelected(returnedProject);return list;}
+ async function reload(){setProjectsState('loading');try{const list=await api<Project[]>('/projects');setProjects(list);setProjectsState('ready');const returnedProject=new URLSearchParams(location.search).get('community');if(returnedProject&&list.some(project=>project.id===returnedProject))setSelected(returnedProject);return list;}catch(reason){setProjectsState('error');throw reason;}}
  async function refreshStatus(){try{setStatus(await api<WorkspaceStatus>('/status'));}catch(e:any){setError(e.message);}}
  useEffect(()=>{if(wallet)reload().catch(e=>setError(e.message));refreshStatus();},[]);
 
  useEffect(()=>{const controller=new AbortController();setSnapshot(null);setChainError('');if(active?.tokenAddress){api<Snapshot>(`/projects/${active.id}/snapshot`,undefined,controller.signal).then(value=>{if(!controller.signal.aborted)setSnapshot(value);}).catch(e=>{if(!controller.signal.aborted)setChainError(e.message);});}return()=>controller.abort();},[active?.id,active?.tokenAddress]);
  async function run(label:string,fn:()=>Promise<void>){if(busy)return;setBusy(label);setError('');setMessage('');try{await fn();}catch(e:any){setError(e.shortMessage||e.message||'The action failed.');}finally{setBusy('');}}
- useEffect(()=>{const sync=()=>{setPage(initialPage());setMenu(false);};window.addEventListener('popstate',sync);window.addEventListener('hashchange',sync);return()=>{window.removeEventListener('popstate',sync);window.removeEventListener('hashchange',sync);};},[]);
- function go(next:Page){history.pushState({},'',next==='home'?location.pathname:`#app/${next}`);setPage(next);setMenu(false);setError('');setMessage('');window.scrollTo({top:0,behavior:'instant'});}
+ useEffect(()=>{if(!Number.isInteger(history.state?.memehelmDepth))history.replaceState({...history.state,memehelmDepth:0},'',location.href);const sync=()=>{setPage(initialPage());setMenu(false);if(location.hash==='#app/copilot')window.dispatchEvent(new CustomEvent('memehelm-open-assistant'));if(location.hash==='#app/calculator')requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('memehelm-open-launch-revenue')));};window.addEventListener('popstate',sync);window.addEventListener('hashchange',sync);return()=>{window.removeEventListener('popstate',sync);window.removeEventListener('hashchange',sync);};},[]);
+ function go(next:Page){
+  if(next==='copilot'){window.dispatchEvent(new CustomEvent('memehelm-open-assistant'));return;}
+  if(next==='calculator'){go('launch');requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('memehelm-open-launch-revenue')));return;}
+  const previous=initialPage();savedRoutes.current.set(previous,location.hash);
+  const target=next==='home'?location.pathname:savedRoutes.current.get(next)||'#app/'+next;
+  if(initialPage()!==next||location.hash!==(next==='home'?'':target)){history.pushState({...history.state,memehelmDepth:(Number(history.state?.memehelmDepth)||0)+1},'',target);}
+  setPage(next);setMenu(false);setError('');setMessage('');
+ }
+
  async function deploy(){await run(draft.holdersEnabled?'Activating your holders vault':draft.socialEnabled?'Activating your community escrow':'Activating your revenue split',async()=>{
   if(!wallet)throw new Error('Connect your wallet first.');if(unresolved('vault'))throw new Error('Check your earlier vault activation in transaction recovery before requesting another.');
   const source={...draft},tx=await api<any>('/vault/prepare',source),receipt=await sendTransaction(wallet,tx,{kind:'vault',label:source.holdersEnabled?'Activate holders vault':source.socialEnabled?'Activate community escrow':'Activate revenue split',payload:{draft:source}});
@@ -69,7 +101,7 @@ function Workspace({wallet,connect,logout,signing,entered,introRevealed,replayIn
   saveActivatedVault(receipt.contractAddress,source);completeTransaction(wallet,receipt.recoveryId);setMessage('Your vault is active. Continue to review your launch.');
  });}
  const [draftVersion,setDraftVersion]=useState(0);
- function startNewDraft(){if(busy)return;setDraft({...defaultDraft,projectTreasury:wallet,creatorFeeRecipient:wallet});setDraftId('');setPrepared(null);setReviewed(false);localStorage.setItem(`memehelm:4663:pons-v2:${wallet.toLowerCase()||"guest"}:launch-step`,'0');setDraftVersion(value=>value+1);go('launch');}
+ function startNewDraft(){if(busy||!window.dispatchEvent(new CustomEvent('memehelm-before-launch-reset',{cancelable:true})))return;setDraft({...defaultDraft,projectTreasury:wallet,creatorFeeRecipient:wallet});setDraftId('');setPrepared(null);setReviewed(false);localStorage.setItem(`memehelm:4663:pons-v2:${wallet.toLowerCase()||"guest"}:launch-step`,'0');setDraftVersion(value=>value+1);go('launch');}
  const [draftId,setDraftId]=useState(()=>localStorage.getItem(`memehelm:4663:pons-v2:${wallet.toLowerCase()||"guest"}:draft-id`)||'');
  useEffect(()=>{localStorage.setItem(`memehelm:4663:pons-v2:${wallet.toLowerCase()||"guest"}:draft-id`,draftId);},[draftId]);
  const [draft,setDraft]=useState<LaunchDraft>(()=>{try{return {...defaultDraft,...JSON.parse(localStorage.getItem(`memehelm:4663:pons-v2:${wallet.toLowerCase()||"guest"}:draft`)||'{}')};}catch{return defaultDraft;}}),[prepared,setPrepared]=useState<Prepared|null>(null),[reviewed,setReviewed]=useState(false);
@@ -106,40 +138,35 @@ function Workspace({wallet,connect,logout,signing,entered,introRevealed,replayIn
  });}
  async function copy(text:string){await navigator.clipboard.writeText(text);setCopyState(text);setTimeout(()=>setCopyState(''),2000);}
  const projectSelector=<select aria-label="Active project" value={active?.id||''} onChange={e=>selectProject(e.target.value)}><option value="" disabled>Select a project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name} · ${p.symbol}</option>)}</select>;
- const primaryLaunch=<button className="button primary" onClick={()=>go('launch')}><Icon name="plus" size={17}/>Launch a token</button>;
- const renderPage=(view:Page)=><div className="content">
+ useEffect(()=>{const open=(event:Event)=>{const detail=(event as CustomEvent<{projectId?:string;kind?:string}>).detail;if(!detail||detail.projectId!==active?.id)return;if(detail.kind==='calendar')go('calendar');else if(detail.kind==='event')go('community');};window.addEventListener('memehelm-open-assistant-result',open);return()=>window.removeEventListener('memehelm-open-assistant-result',open);},[active?.id]);
+ const renderPage=(view:Page)=><div className={`content app-page app-${view} ${view==='workspace'?'app-copilot':''}`}>
+    {wallet&&['workspace','treasury'].includes(view)&&<ProjectNavigation page={view==='workspace'?workspacePageFor(lastToolView.current) as Page:view} project={active} selector={projects.length?projectSelector:null} navigate={go} blocked={!!busy||!!signing||Object.values(editorGuards).some(Boolean)}/>}
+    {['discover','signals'].includes(view)&&<MarketNavigation page={view} navigate={go}/>}
     {view==='discover'&&<MarketWorkspace wallet={wallet} connect={connect}/>}
     {view==='signals'&&<SignalsWorkspace wallet={wallet} connect={connect} discover={()=>go('discover')}/>}
-    {!wallet&&['overview','treasury','copilot'].includes(view)&&<GuestWorkspace page={view} connect={connect} navigate={go}/>}
-    {error&&view===page&&<div className="notice error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={()=>setError('')}><Icon name="close" size={16}/></button></div>}
-    {message&&view===page&&<div className="notice success" role="status"><span>{message}</span><button aria-label="Dismiss notification" onClick={()=>setMessage('')}><Icon name="close" size={16}/></button></div>}
-    {pendingLaunch&&view===page&&<div className="notice success" role="status">Your launch is confirmed. Save it to your workspace to continue.<button disabled={!!busy} onClick={()=>run('Saving your confirmed launch',()=>recordLaunch(pendingLaunch))}>Save confirmed launch</button></div>}
-    {busy&&view===page&&<div className="busy" role="status"><span className="spinner"/>{busy}…</div>}
+    {!wallet&&['overview','treasury'].includes(view)&&<GuestWorkspace page={view} connect={connect} navigate={go}/>}
+    {!wallet&&view==='workspace'&&<WorkspaceSignIn page={workspacePageFor(lastToolView.current) as Page} connect={connect} launch={()=>go('launch')}/>}
+    {error&&view===primaryContentKey(page)&&<div className="notice error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={()=>setError('')}><Icon name="close" size={16}/></button></div>}
+    {message&&view===primaryContentKey(page)&&<div className="notice success" role="status"><span>{message}</span><button aria-label="Dismiss notification" onClick={()=>setMessage('')}><Icon name="close" size={16}/></button></div>}
+    {pendingLaunch&&view===primaryContentKey(page)&&<div className="notice success" role="status">Your launch is confirmed. Save it to your workspace to continue.<button disabled={!!busy} onClick={()=>run('Saving your confirmed launch',()=>recordLaunch(pendingLaunch))}>Save confirmed launch</button></div>}
+    {busy&&view===primaryContentKey(page)&&<div className="busy" role="status"><span className="spinner"/>{busy}…</div>}
 
-    {wallet&&view==='overview'&&<>
-     <div className="deck-heading"><div><h1>My projects</h1><p>Manage your coins, continue a draft or import an existing token.</p></div><div className="deck-actions">{primaryLaunch}<button className="text-button" onClick={()=>setImporting(true)}>Import a token <Icon name="arrow" size={16}/></button></div><HelmMark/></div>
-     <div className="metrics"><Metric label="YOUR PROJECTS" value={String(projects.length)} note={projects.length?`${projects.filter(p=>p.status==='launched').length} launched onchain`:'Start with your next idea'} icon="launch"/><Metric label="REVENUE RECEIVED" value={snapshot?.vault?number(snapshot.vault.totalReceived):'—'} unit={snapshot?.vault?'ETH':undefined} note={active?.name||'Select a project to see revenue'} icon="vault"/><Metric label={snapshot?.vault?.kind==='holders'?'HOLDERS CLAIMABLE':snapshot?.vault?.kind==='social'?'ESCROW AVAILABLE':'PROJECT CLAIMABLE'} value={snapshot?.vault?number(snapshot.vault.kind==='holders'?snapshot.vault.distributable:snapshot.vault.kind==='social'?snapshot.vault.distributable:snapshot.vault.projectPending):'—'} unit={snapshot?.vault?'ETH':undefined} note={snapshot?.vault?.kind==='holders'?'Ready for a payout round':snapshot?.vault?.kind==='social'?'Waiting behind the review window':'Available to your project wallet'} icon="wallet"/><Metric label={snapshot?.vault?.kind==='holders'?'PAID TO HOLDERS':snapshot?.vault?.kind==='social'?'RELEASED FROM ESCROW':'RESERVE CLAIMABLE'} value={snapshot?.vault?number(snapshot.vault.kind==='holders'?snapshot.vault.totalDistributed:snapshot.vault.kind==='social'?snapshot.vault.totalReleased:snapshot.vault.auditPending):'—'} unit={snapshot?.vault?'ETH':undefined} note={snapshot?.vault?.kind==='holders'?'Across signed payout rounds':snapshot?.vault?.kind==='social'?'After public review windows':'Set aside for your next chapter'} icon="shield"/></div>
-     <div className="dashboard-columns"><section className="panel projects-panel"><div className="section-title"><h2>Your projects <span className="count">{projects.length}</span></h2><button className="text-button" onClick={startNewDraft}>New project <Icon name="plus" size={14}/></button></div>{projects.length===0?<Empty title="Your first idea belongs here." body="Create a token with a plan for its revenue. Already launched? Bring your token into the workspace." action={<div className="button-row"><button className="button primary" onClick={()=>go('launch')}>Create a token<Icon name="arrow" size={16}/></button><button className="text-button" onClick={()=>setImporting(true)}>Import token</button></div>}/>:<div className="project-list">{projects.map(p=><button key={p.id} className={`project-row ${active?.id===p.id?'selected':''}`} onClick={()=>selectProject(p.id)}><span className="token-avatar">{p.symbol.slice(0,2)}</span><span className="project-name"><strong>{p.name}</strong><small>${p.symbol} · {p.tokenAddress?shorten(p.tokenAddress):'Draft'}</small></span><Badge tone={p.status==='launched'?'green':'neutral'}>{p.status==='launched'?'Onchain':p.status==='imported'?'Imported':'Draft'}</Badge><Icon name="arrow" size={16}/></button>)}</div>}<div className="panel-bottom"><Icon name="wallet" size={13}/>Your wallet signs every transaction.</div></section>
-      <section className="panel selected-project"><div className="section-title"><h2>{active?'Project in focus':'A place for your next move'}</h2><Icon name="launch" size={18}/></div>{active?<div className="project-focus"><span className="eyebrow">${active.symbol}</span><h3>{active.name}</h3><p>{active.description||'Give this idea a direction.'}</p>{active.tokenAddress&&<a className="contract-link" href={`https://robinhoodchain.blockscout.com/token/${active.tokenAddress}`} target="_blank" rel="noreferrer">{shorten(active.tokenAddress)}<Icon name="external" size={13}/></a>}<div className="focus-actions"><button onClick={()=>go('copilot')}><Icon name="spark" size={17}/>Ask Copilot<Icon name="arrow" size={15}/></button><button onClick={()=>go('treasury')}><Icon name="vault" size={17}/>Open treasury<Icon name="arrow" size={15}/></button></div>{active.status==='draft'&&active.draft&&<button className="button secondary full" disabled={!!busy} onClick={()=>{setDraftVersion(value=>value+1);setDraft({...defaultDraft,...active.draft});setDraftId(active.id);setPrepared(null);setReviewed(false);go('launch');}}>Continue editing <Icon name="arrow" size={15}/></button>}<ProjectPublication key={active.id} project={active} updated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))}/>{chainError&&<p className="inline-note">Balances are temporarily unavailable. Try again shortly.</p>}</div>:<div className="focus-placeholder"><HelmMark/><h3>Launch. Learn. Keep building.</h3><p>Choose a tool below to get started.</p></div>}</section></div>
-     <div className="capabilities"><div><span className="eyebrow">THE BUILDER’S TOOLKIT</span><h2>One workspace. A clear direction.</h2></div><div className="capability-grid"><Capability icon="launch" index="01" title="Launchpad" body="Create your token on Robinhood Chain on a pons bonding curve." action={()=>go('launch')}/><Capability icon="spark" index="02" title="AI Copilot" body="Keep project memory, review proposed actions and record outcomes with AI." action={()=>go('copilot')}/><Capability icon="vault" index="03" title="Revenue Vault" body="Follow the funds and release each wallet’s share when you’re ready." action={()=>go('treasury')}/></div></div>
-    </>}
+    {wallet&&view==='overview'&&<ProjectsWorkspace projects={projects} active={active} snapshot={snapshot} state={projectsState} busy={!!busy} chainError={chainError} select={selectProject} create={startNewDraft} importToken={()=>setImporting(true)} retry={()=>{void reload().catch(e=>setError(e.message));}} navigate={go} edit={project=>{if(!project.draft||busy||!window.dispatchEvent(new CustomEvent('memehelm-before-launch-reset',{cancelable:true})))return;setDraftVersion(value=>value+1);setDraft({...defaultDraft,...project.draft});setDraftId(project.id);setPrepared(null);setReviewed(false);go('launch');}} updated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))}/>}
 
-    {view==='launch'&&<LaunchWizard key={draftVersion} draft={draft} patch={patch} wallet={wallet} busy={busy} prepared={prepared} reviewed={reviewed} setReviewed={setReviewed} connect={connect} deploy={deploy} save={saveDraft} prepare={prepare} launch={launch} assist={assist}/>}
+    {view==='launch'&&<LaunchWizard key={draftVersion} draft={draft} patch={patch} wallet={wallet} busy={busy} prepared={prepared} reviewed={reviewed} setReviewed={setReviewed} connect={connect} deploy={deploy} save={saveDraft} prepare={prepare} launch={launch} assist={assist} onBlocked={setLaunchBlocked}/>}
 
-    {wallet&&view==='treasury'&&<TreasuryWorkspace key={active?.id||'empty'} project={active} wallet={wallet} selector={projects.length?projectSelector:null} createProject={()=>go('launch')} reviewRequest={payoutReview?.projectId===active?.id?payoutReview?.version:undefined} onReviewHandled={version=>setPayoutReview(previous=>previous?.version===version?null:previous)} onProjectUpdated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))}/>}
+    {wallet&&view==='treasury'&&<TreasuryWorkspace key={active?.id||'empty'} project={active} wallet={wallet} selector={null} createProject={()=>go('launch')} reviewRequest={payoutReview?.projectId===active?.id?payoutReview?.version:undefined} onReviewHandled={version=>setPayoutReview(previous=>previous?.version===version?null:previous)} onProjectUpdated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))} onBlocked={setTreasuryBlocked}/>}
 
-    {wallet&&view==='copilot'&&<CopilotWorkspace project={active} selector={projects.length?projectSelector:undefined} available={!!status?.aiConfigured} createProject={()=>go('launch')} openProjects={()=>go('overview')} updated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))}/>}
+    {wallet&&view==='workspace'&&<CopilotWorkspace presentation="workspace" activeView={lastToolView.current} onNavigate={next=>go(next==='chat'?'copilot':workspacePageFor(next) as Page)} project={active} selector={projects.length?projectSelector:undefined} available={!!status?.aiConfigured} createProject={()=>go('launch')} openProjects={()=>go('overview')} updated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))}/>}
 
  </div>;
  return <>
-  <Desktop page={page} navigate={go} renderPage={renderPage} projects={projects} wallet={wallet} busy={signing?"Signing in":busy} connect={connect} logout={logout} entered={entered} introRevealed={introRevealed} replayIntro={replayIntro} openProject={id=>{if(selectProject(id))go('copilot');}} useSplit={reserve=>{if(busy)return;setDraft(d=>({...d,splitEnabled:true,auditBps:reserve*100,projectTreasury:d.projectTreasury||wallet,vaultAddress:'',creatorFeeRecipient:''}));setPrepared(null);setReviewed(false);go('launch');}}/>
+  <Desktop assistant={<WorkspaceAssistant wallet={wallet} connect={connect} project={active} selector={projects.length?projectSelector:undefined} available={!!status?.aiConfigured} currentPageLabel={apps.find(app=>app.id===page)?.title||'Command'} createProject={()=>go('launch')} openProjects={()=>go('overview')} updated={project=>setProjects(previous=>previous.map(item=>item.id===project.id?project:item))}/>} selectProject={selectProject} page={page} navigate={go} renderPage={renderPage} projects={projects} projectsState={projectsState} refreshProjects={()=>{void reload().catch(e=>setError(e.message));}} wallet={wallet} busy={signing?"Signing in":busy} connect={connect} logout={logout} entered={entered} introRevealed={introRevealed} replayIntro={replayIntro} openProject={id=>{if(!selectProject(id))return false;go('workspace');return true;}} useSplit={reserve=>{if(busy||!window.dispatchEvent(new CustomEvent('memehelm-before-launch-reset',{cancelable:true})))return;setDraft(d=>({...d,splitEnabled:true,auditBps:reserve*100,projectTreasury:d.projectTreasury||wallet,vaultAddress:'',creatorFeeRecipient:''}));setPrepared(null);setReviewed(false);go('launch');}}/>
   {entered&&<TransactionRecovery wallet={wallet} resolved={restoreTransaction}/>}
   {importing&&<ImportModal close={()=>setImporting(false)} save={async(input)=>{const project=await api<Project>('/projects',input);await reload();selectProject(project.id);setImporting(false);setMessage('Your project is in.');}}/>}
  </>;
 }
 const defaultDraft:LaunchDraft={name:'',symbol:'',description:'',image:'',website:'',x:'',telegram:'',creatorFeeRecipient:'',creatorTaxBps:0,configId:0,splitEnabled:false,holdersEnabled:false,socialEnabled:false,projectTreasury:'',auditTreasury:'',auditBps:1000,vaultAddress:'',snipeTaxExemptions:[]};
-function Metric({label,value,unit,note,icon}:{label:string;value:string;unit?:string;note:string;icon:string}){return <div className="metric"><div><span>{label}</span><Icon name={icon} size={18}/></div><strong>{value}{unit&&<small>{unit}</small>}</strong><p>{note}</p></div>;}
-function Capability({icon,index,title,body,action}:{icon:string;index:string;title:string;body:string;action:()=>void}){return <button className="capability" onClick={action}><span className="capability-top"><Icon name={icon} size={24}/><small>{index}</small></span><h3>{title}</h3><p>{body}</p><span className="capability-arrow"><Icon name="arrow" size={18}/></span></button>;}
 function PageTitle({eyebrow,title,description,action}:{eyebrow:string;title:string;description:string;action?:React.ReactNode}){return <div className="page-title"><div className="eyebrow">{eyebrow}</div><div><h1>{title}</h1>{action}</div><p>{description}</p></div>;}
 function ImportModal({close,save}:{close:()=>void;save:(input:unknown)=>Promise<void>}){const panel=React.useRef<HTMLElement>(null);useModalFocus(panel,()=>{if(!saving)close();});const[name,setName]=useState(''),[symbol,setSymbol]=useState(''),[token,setToken]=useState(''),[vault,setVault]=useState(''),[saving,setSaving]=useState(false),[importError,setImportError]=useState('');return <div className="modal-overlay" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving)close();}}><section ref={panel} tabIndex={-1} className="modal panel" role="dialog" aria-modal="true" aria-labelledby="import-title"><div className="section-title"><h2 id="import-title">Import your token</h2><button aria-label="Close import" disabled={saving} onClick={close}><Icon name="close"/></button></div><p className="panel-copy">Bring a Robinhood Chain token into your workspace. Add its MemeHelm vault to see revenue and balances.</p><form onSubmit={async e=>{e.preventDefault();setSaving(true);setImportError('');try{await save({name,symbol,tokenAddress:token,vaultAddress:vault});}catch(reason:any){setImportError(reason.message||'This token could not be verified. Check the address and try again.');}finally{setSaving(false);}}}>{importError&&<div className="notice error" role="alert">{importError}</div>}<Field label="Project name"><input required maxLength={32} value={name} onChange={e=>setName(e.target.value)}/></Field><Field label="Symbol"><input required pattern="[A-Za-z0-9]{2,10}" value={symbol} onChange={e=>setSymbol(e.target.value)}/></Field><Field label="Token address"><input required pattern="0x[0-9a-fA-F]{40}" value={token} onChange={e=>setToken(e.target.value)} placeholder="0x…"/></Field><Field label="MemeHelm vault address (optional)"><input pattern="0x[0-9a-fA-F]{40}" value={vault} onChange={e=>setVault(e.target.value)} placeholder="0x…"/></Field><button className="button primary full" disabled={saving} type="submit">{saving?'Importing…':'Import project'}</button></form></section></div>;}
 function AppRoot(){const project=location.pathname.match(/^\/project\/([a-f0-9-]+)$/);return project?<PublicProject id={project[1]}/>:<App/>;}

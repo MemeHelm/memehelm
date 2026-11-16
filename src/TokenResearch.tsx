@@ -1,4 +1,5 @@
 import {useEffect,useId,useState} from 'react';
+import {utcDateTime} from './time';
 import {api} from './api';
 import './token-research.css';
 
@@ -10,7 +11,7 @@ type ReadStatus='available'|'unavailable'|'outside-scope';
 type Research={address:string;checkedAt:string;registration:{status:ReadStatus;registered:boolean|null;deployer:string|null};launchHistory:{status:ReadStatus;count:number|null;items:Launch[];truncated?:boolean;coverage:Coverage|null;message:string|null};creatorTrading:{status:ReadStatus;count:number|null;buys:number|null;sells:number|null;items:DirectTrade[];coverage:Coverage|null;poolEventsNotAttributed?:number;message:string};fundingRelationships:{status:'unknown';message:string};evidence:Evidence[];limitations:string[]};
 const explorer='https://robinhoodchain.blockscout.com';
 const short=(value:string)=>value.slice(0,6)+'…'+value.slice(-4);
-const time=(value:string|null)=>value?new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'Time unavailable';
+const time=(value:string|null)=>value?utcDateTime(value,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'Time unavailable';
 const number=(value:string)=>{const n=Number(value);return Number.isFinite(n)?n.toLocaleString('en-US',{maximumSignificantDigits:6}):'Unavailable';};
 
 function CoverageNote({value}:{value:Coverage|null}){return value?<p className="research-coverage">{value.fromBlock!=null&&value.toBlock!=null&&<>Blocks {value.fromBlock}–{value.toBlock}. </>}{value.partial&&<strong>Partial coverage. </strong>}{value.scope}</p>:null;}

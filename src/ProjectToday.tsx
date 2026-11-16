@@ -4,19 +4,20 @@ import {api} from './api';
 import type {Project} from './types';
 import type {ContentPlan} from './growth-types';
 import type {OperationsState,OperationsAction} from './OperationsWorkspace';
+import {utcDateTime,utcDate} from './time';
 import './growth.css';
 
 type Overview={goals:{id:string;title:string;status:string;accepted:number;pending:number;public:boolean}[];content:ContentPlan[];events:{title:string;status:string;startsAt:string;registrations:number}[]};
-export type CopilotView='today'|'chat'|'memory'|'activity'|'writing'|'community'|'goals'|'content';
+export type CopilotView='today'|'chat'|'memory'|'activity'|'writing'|'community'|'goals'|'content'|'assets'|'publishing'|'publication';
 export function ProjectToday({project,state,onSelect,onNavigate,disabled}:{project:Project;state:OperationsState;onSelect:(action:OperationsAction)=>void;onNavigate?:(view:CopilotView)=>void;disabled:boolean}){
   const [overview,setOverview]=useState<Overview|null>(null),[error,setError]=useState(''),[version,setVersion]=useState(0);
   useEffect(()=>{const controller=new AbortController();api<Overview>(`/projects/${project.id}/overview`,undefined,controller.signal).then(setOverview).catch(reason=>{if(!controller.signal.aborted)setError(reason.message);});return()=>controller.abort();},[project.id,version]);
   const open=state.actions.filter(item=>['proposed','approved'].includes(item.status)),overdue=open.filter(item=>item.dueAt&&Date.parse(item.dueAt)<Date.now()),pending=open.filter(item=>item.status==='proposed'),ready=open.filter(item=>item.status==='approved'),outcomes=state.actions.filter(item=>item.status==='done'&&item.outcome).slice(0,3);
   const priority=[...overdue,...pending,...ready].filter((item,index,all)=>all.findIndex(other=>other.id===item.id)===index).slice(0,3),reviews=overview?.goals.reduce((sum,goal)=>sum+goal.pending,0),facts=state.baseline?.intelligence;
   const upcoming=[...(overview?.content.filter(item=>item.status==='planned').map(item=>({id:item.id,title:item.title,at:item.scheduledAt,kind:'Content plan',view:'content' as CopilotView}))||[]),...(overview?.events.filter(item=>item.status==='upcoming').map((item,index)=>({id:'event-'+index,title:item.title,at:item.startsAt,kind:'Community event',view:'community' as CopilotView}))||[])].sort((a,b)=>a.at.localeCompare(b.at)).slice(0,4);
-  const date=(value:string)=>new Date(value).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  const date=(value:string)=>utcDateTime(value,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
   return <section className="project-today" aria-label="Project overview">
-    <div className="today-attention"><div className="today-heading"><h2>Your next decisions.</h2><span>{new Date().toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})}</span></div>
+    <div className="today-attention"><div className="today-heading"><h2>Your next decisions.</h2><span>{utcDate(new Date(),{weekday:'long',month:'short',day:'numeric'})}</span></div>
       <div className="today-summary"><span><strong>{pending.length}</strong> awaiting review</span><span><strong>{ready.length}</strong> ready to act</span>{overdue.length>0&&<span className="today-overdue"><strong>{overdue.length}</strong> past due</span>}</div>
       <div className="today-priorities">{priority.length?priority.map(item=><button key={item.id} disabled={disabled} onClick={()=>onSelect(item)}><span className="today-priority-state">{item.dueAt&&Date.parse(item.dueAt)<Date.now()?'Past due':item.status==='proposed'?'Review proposal':'Record progress'}</span><strong>{item.title}</strong><Arrow/></button>):<p className="data-note">Your action queue is clear. Check the latest observations or add the next thing you want to accomplish.</p>}
       {!!reviews&&<button disabled={disabled} onClick={()=>onNavigate?.('goals')}><span className="today-priority-state">Community</span><strong>{reviews} contribution{reviews===1?'':'s'} waiting for your review</strong><Arrow/></button>}</div>

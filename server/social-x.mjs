@@ -72,9 +72,15 @@ export function createXSocial(store,{origin,clientId=process.env.X_CLIENT_ID,cli
   }
   async function metrics(project,id){if(locks.has(project.id))throw fail('An X request is already running.',409);locks.add(project.id);try{const post=records(project).find(item=>item.id===id),item=connection(project);if(post?.status!=='published'||!item||post.receipt.accountId!==item.account.id)throw fail('Connect the account that published this post.');const token=await access(project,item),result=await request(`https://api.x.com/2/tweets/${post.receipt.id}?tweet.fields=public_metrics,author_id`,{headers:{authorization:`Bearer ${token}`}});if(result.data?.id!==post.receipt.id||result.data?.author_id!==item.account.id||!result.data.public_metrics)throw fail('X post results could not be verified.',503);const values=Object.fromEntries(['like_count','reply_count','retweet_count','quote_count'].map(name=>{const value=result.data.public_metrics[name];if(!Number.isSafeInteger(value)||value<0)throw fail('X post results were incomplete.',503);return[name,value];}));await store.change('social_posts',list=>{const current=list.find(value=>value.id===id);current.metrics={...values,checkedAt:iso(now())};});return get(project);}finally{locks.delete(project.id);}}
   const manual=createManualSocial(store,{now,records,locked:id=>locks.has(id),checkRevision,get});
-  function context(project){return records(project).filter(post=>post.status==='published'||post.status==='recorded').slice(0,8).map(post=>{
-    const target=post.manualPublication||post.receipt;
-    return{text:post.text,textSource:'saved draft; published text not checked',publishedAt:post.manualPublication?target.publishedAt:post.publishedAt,recordedAt:target.recordedAt||null,url:target.url,publicationSource:post.manualPublication?'creator':'X API receipt',publicationVerified:!post.manualPublication,publicMetrics:post.metrics||null,creatorReportedResults:(post.manualReports||[]).filter(item=>item.postId===(target.postId||target.id)).slice(0,5)};
-  });}
+  function context(project){
+    const posts=records(project).filter(post=>post.status==='published'||post.status==='recorded').map(post=>{
+      const target=post.manualPublication||post.receipt,reports=(post.manualReports||[]).filter(item=>item.postId===(target.postId||target.id)).sort((a,b)=>(b.recordedAt||b.observedAt||'').localeCompare(a.recordedAt||a.observedAt||''));
+      const resultAt=[post.metrics?.checkedAt,...reports.map(item=>item.recordedAt||item.observedAt)].filter(Boolean).sort().at(-1)||'';
+      return{post,target,reports,resultAt,publicationAt:target.recordedAt||post.publishedAt||target.publishedAt||post.createdAt||''};
+    });
+    const results=posts.filter(item=>item.resultAt).sort((a,b)=>b.resultAt.localeCompare(a.resultAt)).slice(0,4),selected=new Set(results.map(item=>item.post.id));
+    const publications=posts.filter(item=>!selected.has(item.post.id)).sort((a,b)=>b.publicationAt.localeCompare(a.publicationAt)).slice(0,8-results.length);
+    return [...results,...publications].map(({post,target,reports})=>({text:post.text,textSource:'saved draft; published text not checked',publishedAt:post.manualPublication?target.publishedAt:post.publishedAt,recordedAt:target.recordedAt||null,url:target.url,publicationSource:post.manualPublication?'creator':'X API receipt',publicationVerified:!post.manualPublication,publicMetrics:post.metrics||null,creatorReportedResults:reports.slice(0,5)}));
+  }
   return{get,start,callback,finish,disconnect,save,publish,metrics,context,...manual};
 }

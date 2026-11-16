@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import {Arrow} from './Brand';
 import {MateStory} from './mate/MateStory';
 import {MATE_DEADLINE,MATE_REVEAL,mateStage} from './mate/choreography';
+import {resolveMateAnchor} from './mate/landing-target';
 
 export function prefersLessMotion(){return typeof window!=='undefined'&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
 
@@ -24,7 +25,7 @@ export function EntryLoader({onDone,onReveal,fullMotion=false}:{onDone:()=>void;
     import('./mate/sequence').then(({createMateSequence})=>{
       if(!alive||exiting.current||!surface.current)return;
       controller=createMateSequence(surface.current,{
-        anchor:()=>document.querySelector<HTMLElement>('[data-mate-anchor]')?.getBoundingClientRect()||null,
+        anchor:()=>resolveMateAnchor(document),
         onFrame:seconds=>{
           if(!alive||exiting.current)return;
           if(surface.current)surface.current.dataset.mateStage=mateStage(seconds);

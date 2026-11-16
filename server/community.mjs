@@ -40,16 +40,18 @@ export function createCommunity(store,{now=()=>Date.now()}={}){
         if(!current.published||!current.tokenAddress)throw fail('Publish your verified project page in My Projects first.');
         if(Date.parse(event.details.startsAt)<=now())throw fail('Choose a future start time before publishing.');
         if(event.details.capacity!==null&&event.details.capacity<rsvps.length)throw fail('Capacity cannot be lower than the existing registrations.');
-        event.publishedDetails={...event.details};event.publishedRevision=event.revision+1;event.publishedAt=time;
+        event.publishedDetails={...event.details};event.lastPublishedDetails={...event.publishedDetails};event.publishedRevision=event.revision+1;event.publishedAt=time;
       }else if(input.action==='unpublish'){
-        if(input.confirm!==true||!event.publishedDetails)throw fail('Confirm that you want to hide this event.');event.publishedDetails=null;
+        if(input.confirm!==true||!event.publishedDetails)throw fail('Confirm that you want to hide this event.');event.lastPublishedDetails={...event.publishedDetails};event.publishedDetails=null;
       }else if(input.action==='cancel'){
         if(input.confirm!==true||event.status!=='upcoming')throw fail('Confirm that you want to cancel this event.');event.cancellation=text(input.reason||'',1000,'Cancellation note');if(!event.cancellation)throw fail('Add a cancellation note.');event.status='cancelled';
       }else if(input.action==='complete'){
-        if(input.confirm!==true||event.status!=='upcoming'||!event.publishedDetails||Date.parse(event.publishedDetails.startsAt)>now())throw fail('An event can be completed after its published start time.');
+        const published=event.publishedDetails||event.lastPublishedDetails;
+        if(input.confirm!==true||event.status!=='upcoming'||!published||Date.parse(published.startsAt)>now())throw fail('An event can be completed after its published start time.');
         event.outcome=text(input.outcome,4000,'Event outcome');if(!event.outcome)throw fail('Record what happened at the event.');if(typeof input.shareRecap!=='boolean')throw fail('Choose whether to share the recap.');event.publicRecap=input.shareRecap?event.outcome:null;event.status='completed';event.completedAt=time;
       }else if(input.action==='attendance'){
-        if(!event.publishedDetails||Date.parse(event.publishedDetails.startsAt)>now()||event.status==='cancelled')throw fail('Record attendance after the event starts.');
+        const published=event.publishedDetails||event.lastPublishedDetails;
+        if(!published||Date.parse(published.startsAt)>now()||event.status==='cancelled')throw fail('Record attendance after the event starts.');
         if(typeof input.attended!=='boolean')throw fail('Choose an attendance state.');const participant=rsvps.find(item=>item.wallet===input.wallet);if(!participant)throw fail('Registration not found.',404);participant.attended=input.attended;
       }else throw fail('Choose an available event action.');
       event.revision++;event.updatedAt=time;state.revision++;
@@ -72,6 +74,17 @@ export function createCommunity(store,{now=()=>Date.now()}={}){
     });return publicView(project,wallet);
   }
   function attendees(project,id){eventFor(getState(project),id);return entries(project,id).map(({wallet,joinedAt,attended})=>({wallet,joinedAt,attended}));}
-  function context(project){const state=get(project);return{channels:state.sharedLinks||{},events:state.events.slice(0,15).map(event=>({title:event.details.title,status:event.status,startsAt:event.details.startsAt,published:!!event.publishedDetails,registrations:event.going,attendanceRecordedByCreator:event.attended,outcome:event.outcome||null})),countsAreLocalRegistrations:true,socialAudienceSizeIsUnknown:true};}
+  function context(project){
+    const state=get(project),changedAt=event=>[event.completedAt,event.updatedAt,event.createdAt].filter(Boolean).sort().at(-1)||'',recent=(a,b)=>changedAt(b).localeCompare(changedAt(a));
+    const closed=state.events.filter(event=>event.status!=='upcoming').sort(recent),open=state.events.filter(event=>event.status==='upcoming').sort(recent).slice(0,15-Math.min(5,closed.length));
+    return{channels:state.sharedLinks||{},events:[...open,...closed.slice(0,15-open.length)].map(event=>{
+      const published=event.publishedDetails,details=published||event.details,hasUnpublishedEdits=!!published&&JSON.stringify(published)!==JSON.stringify(event.details);
+      return{title:details.title,status:event.status,startsAt:details.startsAt,published:!!published,detailsSource:published?'published invitation snapshot':'private event draft',hasUnpublishedEdits,
+        ...(!published&&event.lastPublishedDetails?{lastPublishedInvitation:{title:event.lastPublishedDetails.title,startsAt:event.lastPublishedDetails.startsAt,endsAt:event.lastPublishedDetails.endsAt}}:{}),
+        ...(hasUnpublishedEdits?{privateDraft:{title:event.details.title,startsAt:event.details.startsAt,endsAt:event.details.endsAt}}:{}),
+        registrations:event.going,attendanceRecordedByCreator:event.attended,outcome:event.outcome||null,completedAt:event.completedAt||null,
+        ...(event.outcome?{outcomeSource:'creator',outcomeVerified:false,recapPublic:!!event.publicRecap}:{}),cancellation:event.cancellation||null};
+    }),countsAreLocalRegistrations:true,socialAudienceSizeIsUnknown:true};
+  }
   return{get,saveLinks,changeEvent,publicView,rsvp,attendees,context};
 }

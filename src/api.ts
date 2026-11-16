@@ -2,7 +2,7 @@ export class ApiError extends Error{constructor(message:string,public status:num
 let walletScope='guest';
 const unresolvedAI=new Map<string,string>();
 export function setApiWalletScope(wallet:string){walletScope=wallet.toLowerCase()||'guest';}
-const aiPath=(path:string)=>path==='/copilot'||path==='/launch/assist'||path==='/watches/brief'||/^\/projects\/[a-f0-9-]+\/(?:chat|assistant\/plan)$/.test(path);
+const aiPath=(path:string)=>path==='/copilot'||path==='/launch/assist'||path==='/watches/brief'||path==='/assistant/chat'||/^\/projects\/[a-f0-9-]+\/(?:chat|assistant\/plan)$/.test(path);
 const stable=(value:any):any=>Array.isArray(value)?value.map(stable):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])])):value;
 async function aiIdentityKey(path:string,body:unknown,scope:string){const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(stable({path,body}))));return `memehelm:4663:pons-v2:${scope}:ai-request:${Array.from(new Uint8Array(bytes),byte=>byte.toString(16).padStart(2,'0')).join('')}`;}
 function forgetIdentity(key:string){unresolvedAI.delete(key);try{localStorage.removeItem(key);}catch{}}

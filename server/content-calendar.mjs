@@ -29,5 +29,11 @@ export function createContentCalendar(store,{now=()=>Date.now()}={}){
       item.revision++;item.updatedAt=new Date(now()).toISOString();
     });return get(project);
   }
-  return {get,save,context:project=>get(project).items.filter(item=>item.status!=='cancelled').slice(-20).map(({title,channel,scheduledAt,status,outcome})=>({title,channel,scheduledAt,status,outcome}))};
+  function context(project){
+    const items=get(project).items,completed=items.filter(item=>item.status==='done').sort((a,b)=>(b.completedAt||b.updatedAt||b.scheduledAt).localeCompare(a.completedAt||a.updatedAt||a.scheduledAt));
+    // Reserve room for recent results even when the calendar contains many future plans.
+    const planned=items.filter(item=>item.status==='planned').slice(0,20-Math.min(8,completed.length));
+    return [...planned,...completed.slice(0,20-planned.length)].map(({title,channel,scheduledAt,status,outcome,completedAt})=>({title,channel,scheduledAt,status,outcome,completedAt,...(status==='done'?{outcomeSource:'creator',outcomeVerified:false}:{})}));
+  }
+  return {get,save,context};
 }
